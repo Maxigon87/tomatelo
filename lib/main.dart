@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tomatelo/screens/home_screen.dart';
 import 'package:tomatelo/screens/setup_screen.dart';
 import 'package:tomatelo/services/storage_service.dart';
+import 'package:tomatelo/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,16 +20,10 @@ class TomateloApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Tomatelo',
+      debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system,
-      theme: ThemeData(
-        colorSchemeSeed: Colors.red,
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorSchemeSeed: Colors.red,
-        brightness: Brightness.dark,
-        useMaterial3: true,
-      ),
+      theme: AppTheme.lightTheme(),
+      darkTheme: AppTheme.darkTheme(),
       home: showSetupScreen ? const SetupScreen() : const HomeScreen(),
     );
   }

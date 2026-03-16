@@ -20,6 +20,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _dailyGoal = 0;
   List<int> _weeklyData = List.filled(7, 0);
   bool _dropTrigger = false;
+  bool _goalCelebrated = false;
+  bool _tooMuchWaterWarned = false;
 
   @override
   void initState() {
@@ -38,6 +40,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _glassesYesterday = glassesYesterday;
       _dailyGoal = dailyGoal;
       _weeklyData = weeklyData;
+      _goalCelebrated = glassesToday >= dailyGoal && dailyGoal > 0;
+      _tooMuchWaterWarned = false;
     });
   }
 
@@ -59,31 +63,74 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  int get _upperHydrationLimit {
+    if (_dailyGoal <= 0) {
+      return 0;
+    }
+    return _dailyGoal + 3;
+  }
+
+  void _showFriendlyAlert({required String title, required String message}) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('¡Genial!'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _incrementGlasses() {
     setState(() {
       _glassesToday++;
       _dropTrigger = !_dropTrigger;
     });
     _storageService.saveGlassesToday(_glassesToday);
+
+    if (_dailyGoal > 0 && _glassesToday >= _dailyGoal && !_goalCelebrated) {
+      _goalCelebrated = true;
+      _showFriendlyAlert(
+        title: '¡Meta cumplida! 🎉',
+        message:
+            '¡Excelente! Ya llegaste a tu objetivo de hoy. Ahora mantén un ritmo tranqui y escucha a tu cuerpo. 💧',
+      );
+    }
+
+    if (_upperHydrationLimit > 0 &&
+        _glassesToday >= _upperHydrationLimit &&
+        !_tooMuchWaterWarned) {
+      _tooMuchWaterWarned = true;
+      _showFriendlyAlert(
+        title: 'Ojo, súper hidratado 😅',
+        message:
+            'Ya vas $_glassesToday vasos (límite sugerido: $_upperHydrationLimit). Mejor bajemos el ritmo para no pasarnos con el agua hoy.',
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final progress = _dailyGoal == 0
         ? 0
-        : ((_glassesToday / _dailyGoal) * 100).round();
+        : (((_glassesToday > _dailyGoal ? _dailyGoal : _glassesToday) /
+                    _dailyGoal) *
+                100)
+            .round();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tomatelo'),
         actions: [
           IconButton(
-            icon: Image.asset(
-              'assets/images/icono.png',
-            ), // Reemplaza con la ruta de tu imagen
-            onPressed: () {
-              // Agrega aquí la funcionalidad para tu nuevo icono
-            },
+            icon: Image.asset('assets/images/icono.png', width: 28, height: 28),
+            onPressed: () {},
           ),
           IconButton(
             icon: const Icon(Icons.info_outline_rounded),
@@ -96,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   title: const Text('Consejo de hidratación'),
                   content: const Text(
-                    'Bebe agua regularmente durante el día para mantener una buena hidratación.',
+                    '¡Vas increíble! Bebe agua de a poco durante el día y tu cuerpo te lo va a aplaudir. 👏',
                   ),
                   actions: [
                     TextButton(
@@ -120,10 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const SizedBox(height: 6),
-                    const Image(
-                      image: AssetImage('assets/images/logo.png'),
-                      height: 110,
-                    ),
+                    const Image(image: AssetImage('assets/images/icono.png'), height: 110),
                     const SizedBox(height: 24),
                     WaterProgress(current: _glassesToday, total: _dailyGoal),
                     const SizedBox(height: 14),
@@ -136,7 +180,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 26),
                     WaterButton(onPressed: _incrementGlasses),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 12),
+                    if (_dailyGoal > 0)
+                      Text(
+                        'Meta: $_dailyGoal vasos · Límite sugerido: $_upperHydrationLimit',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    const SizedBox(height: 18),
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(20),
@@ -154,9 +204,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               duration: const Duration(milliseconds: 450),
                               transitionBuilder: (child, animation) =>
                                   FadeTransition(
-                                    opacity: animation,
-                                    child: child,
-                                  ),
+                                opacity: animation,
+                                child: child,
+                              ),
                               child: Text(
                                 key: ValueKey(_glassesYesterday),
                                 '$_glassesYesterday vasos',

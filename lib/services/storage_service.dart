@@ -1,11 +1,12 @@
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tomatelo/models/user_data.dart';
 
 class StorageService {
   static const String _weightKey = 'weight';
   static const String _heightKey = 'height';
+  static const String _reminderMinutesKey = 'reminderMinutes';
   static const String _dailyGoalKey = 'dailyGoal';
   static const String _glassesTodayKey = 'glassesToday';
   static const String _glassesYesterdayKey = 'glassesYesterday';
@@ -14,7 +15,10 @@ class StorageService {
 
   Future<void> saveWeeklyData(List<int> weeklyData) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_weeklyDataKey, weeklyData.map((e) => e.toString()).toList());
+    await prefs.setStringList(
+      _weeklyDataKey,
+      weeklyData.map((e) => e.toString()).toList(),
+    );
   }
 
   Future<List<int>> getWeeklyData() async {
@@ -30,6 +34,7 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_weightKey, userData.weight);
     await prefs.setDouble(_heightKey, userData.height);
+    await prefs.setInt(_reminderMinutesKey, userData.reminderMinutes);
   }
 
   Future<UserData?> getUserData() async {
@@ -38,7 +43,11 @@ class StorageService {
     final height = prefs.getDouble(_heightKey);
 
     if (weight != null && height != null) {
-      return UserData(weight: weight, height: height);
+      return UserData(
+        weight: weight,
+        height: height,
+        reminderMinutes: prefs.getInt(_reminderMinutesKey) ?? 60,
+      );
     }
     return null;
   }
@@ -51,6 +60,16 @@ class StorageService {
   Future<int> getDailyGoal() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt(_dailyGoalKey) ?? 0;
+  }
+
+  Future<void> saveReminderMinutes(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_reminderMinutesKey, minutes);
+  }
+
+  Future<int> getReminderMinutes() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_reminderMinutesKey) ?? 60;
   }
 
   Future<void> saveGlassesToday(int glasses) async {

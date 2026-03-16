@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tomatelo/models/user_data.dart';
 import 'package:tomatelo/screens/home_screen.dart';
+import 'package:tomatelo/services/notification_service.dart';
 import 'package:tomatelo/services/storage_service.dart';
 import 'package:tomatelo/theme/app_theme.dart';
 
@@ -15,18 +16,29 @@ class _SetupScreenState extends State<SetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _weightController = TextEditingController();
   final _heightController = TextEditingController();
+  final _reminderController = TextEditingController(text: '60');
   final _storageService = StorageService();
 
   void _saveSetup() async {
     if (_formKey.currentState!.validate()) {
       final weight = double.parse(_weightController.text.replaceAll(',', '.'));
       final height = double.parse(_heightController.text.replaceAll(',', '.'));
-      final userData = UserData(weight: weight, height: height);
+      final reminderMinutes = int.parse(_reminderController.text);
+      final userData = UserData(
+        weight: weight,
+        height: height,
+        reminderMinutes: reminderMinutes,
+      );
       await _storageService.saveUserData(userData);
 
       final dailyGoalInMl = weight * 35;
       final dailyGoalInGlasses = (dailyGoalInMl / 250).round();
       await _storageService.saveDailyGoal(dailyGoalInGlasses);
+      await _storageService.saveReminderMinutes(reminderMinutes);
+
+      await NotificationService.instance.scheduleHydrationReminder(
+        minutes: reminderMinutes,
+      );
 
       await _storageService.saveLastReset(DateTime.now());
 
@@ -40,6 +52,14 @@ class _SetupScreenState extends State<SetupScreen> {
         ),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _weightController.dispose();
+    _heightController.dispose();
+    _reminderController.dispose();
+    super.dispose();
   }
 
   @override
@@ -95,6 +115,26 @@ class _SetupScreenState extends State<SetupScreen> {
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Por favor ingresa tu altura';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: _reminderController,
+                        decoration: const InputDecoration(
+                          labelText: 'Recordatorio cada (min)',
+                          helperText: 'Mínimo 15 minutos para evitar spam.',
+                          prefixIcon: Icon(Icons.notifications_active_outlined),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Configura cada cuánto recordarte';
+                          }
+                          final parsed = int.tryParse(value);
+                          if (parsed == null || parsed < 15) {
+                            return 'Usa un valor de 15 minutos o más';
                           }
                           return null;
                         },

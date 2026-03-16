@@ -120,16 +120,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final progress = _dailyGoal == 0
         ? 0
         : (((_glassesToday > _dailyGoal ? _dailyGoal : _glassesToday) /
-                    _dailyGoal) *
-                100)
-            .round();
+                      _dailyGoal) *
+                  100)
+              .round();
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Tomatelo'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         actions: [
           IconButton(
-            icon: Image.asset('assets/images/icono.png', width: 28, height: 28),
+            icon: Image.asset('assets/images/logo.gif', width: 28, height: 28),
             onPressed: () {},
           ),
           IconButton(
@@ -162,12 +165,20 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.only(
+                  top: MediaQuery.of(context).padding.top + kToolbarHeight + 24,
+                  left: 24,
+                  right: 24,
+                  bottom: 24,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const SizedBox(height: 6),
-                    const Image(image: AssetImage('assets/images/icono.png'), height: 110),
+                    const Image(
+                      image: AssetImage('assets/images/icono.png'),
+                      height: 110,
+                    ),
                     const SizedBox(height: 24),
                     WaterProgress(current: _glassesToday, total: _dailyGoal),
                     const SizedBox(height: 14),
@@ -204,9 +215,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               duration: const Duration(milliseconds: 450),
                               transitionBuilder: (child, animation) =>
                                   FadeTransition(
-                                opacity: animation,
-                                child: child,
-                              ),
+                                    opacity: animation,
+                                    child: child,
+                                  ),
                               child: Text(
                                 key: ValueKey(_glassesYesterday),
                                 '$_glassesYesterday vasos',

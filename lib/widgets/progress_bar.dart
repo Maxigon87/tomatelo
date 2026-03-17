@@ -6,11 +6,7 @@ class ProgressBar extends StatefulWidget {
   final int current;
   final int total;
 
-  const ProgressBar({
-    super.key,
-    required this.current,
-    required this.total,
-  });
+  const ProgressBar({super.key, required this.current, required this.total});
 
   @override
   State<ProgressBar> createState() => _ProgressBarState();
@@ -37,7 +33,9 @@ class _ProgressBarState extends State<ProgressBar>
 
   @override
   Widget build(BuildContext context) {
-    final percentage = widget.total > 0 ? (widget.current / widget.total).clamp(0.0, 1.0) : 0.0;
+    final percentage = widget.total > 0
+        ? (widget.current / widget.total).clamp(0.0, 1.0)
+        : 0.0;
 
     return SizedBox(
       height: 18,
@@ -54,7 +52,9 @@ class _ProgressBarState extends State<ProgressBar>
                   widthFactor: percentage,
                   alignment: Alignment.centerLeft,
                   child: CustomPaint(
-                    painter: _LinearWavePainter(phase: _controller.value * 2 * pi),
+                    painter: _LinearWavePainter(
+                      phase: _controller.value * 2 * pi,
+                    ),
                   ),
                 );
               },
@@ -82,16 +82,23 @@ class _LinearWavePainter extends CustomPainter {
 
     final path = Path()..moveTo(0, size.height * 0.45);
     for (double x = 0; x <= size.width; x++) {
-      path.lineTo(x, size.height * 0.45 + sin(x / size.width * 2 * pi + phase) * 2.0);
+      path.lineTo(
+        x,
+        size.height * 0.45 + sin(x / size.width * 2 * pi + phase) * 2.0,
+      );
     }
     path
       ..lineTo(size.width, 0)
       ..lineTo(0, 0)
       ..close();
 
-    canvas.drawPath(path, Paint()..color = Colors.white.withValues(alpha: 0.22));
+    canvas.drawPath(
+      path,
+      Paint()..color = Colors.white.withValues(alpha: 0.22),
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _LinearWavePainter oldDelegate) => oldDelegate.phase != phase;
+  bool shouldRepaint(covariant _LinearWavePainter oldDelegate) =>
+      oldDelegate.phase != phase;
 }

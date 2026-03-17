@@ -26,8 +26,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
-    _resetDataAtMidnight();
+    _initializeScreen();
+  }
+
+  Future<void> _initializeScreen() async {
+    await _resetDataAtMidnight();
+    await _loadData();
   }
 
   Future<void> _loadData() async {
@@ -35,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final glassesYesterday = await _storageService.getGlassesYesterday();
     final dailyGoal = await _storageService.getDailyGoal();
     final weeklyData = await _storageService.getWeeklyData();
+    if (!mounted) return;
     setState(() {
       _glassesToday = glassesToday;
       _glassesYesterday = glassesYesterday;
@@ -48,18 +53,23 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _resetDataAtMidnight() async {
     final lastReset = await _storageService.getLastReset();
     final now = DateTime.now();
-    if (lastReset != null &&
-        (now.day != lastReset.day ||
-            now.month != lastReset.month ||
-            now.year != lastReset.year)) {
+    final storedGlassesToday = await _storageService.getGlassesToday();
+
+    if (lastReset == null) {
+      await _storageService.saveLastReset(now);
+      return;
+    }
+
+    if (now.day != lastReset.day ||
+        now.month != lastReset.month ||
+        now.year != lastReset.year) {
       final weeklyData = List<int>.from(await _storageService.getWeeklyData());
       weeklyData.removeAt(0);
-      weeklyData.add(_glassesToday);
+      weeklyData.add(storedGlassesToday);
       await _storageService.saveWeeklyData(weeklyData);
-      await _storageService.saveGlassesYesterday(_glassesToday);
+      await _storageService.saveGlassesYesterday(storedGlassesToday);
       await _storageService.saveGlassesToday(0);
       await _storageService.saveLastReset(now);
-      _loadData();
     }
   }
 

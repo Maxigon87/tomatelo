@@ -53,7 +53,6 @@ class NotificationService {
       schedule: NotificationInterval(
         interval: Duration(minutes: safeMinutes),
         repeats: true,
-        preciseAlarm: true,
       ),
     );
   }

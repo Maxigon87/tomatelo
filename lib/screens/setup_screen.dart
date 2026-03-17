@@ -19,39 +19,46 @@ class _SetupScreenState extends State<SetupScreen> {
   final _reminderController = TextEditingController(text: '60');
   final _storageService = StorageService();
 
-  void _saveSetup() async {
-    if (_formKey.currentState!.validate()) {
-      final weight = double.parse(_weightController.text.replaceAll(',', '.'));
-      final height = double.parse(_heightController.text.replaceAll(',', '.'));
-      final reminderMinutes = int.parse(_reminderController.text);
-      final userData = UserData(
-        weight: weight,
-        height: height,
-        reminderMinutes: reminderMinutes,
-      );
-      await _storageService.saveUserData(userData);
-
-      final dailyGoalInMl = weight * 35;
-      final dailyGoalInGlasses = (dailyGoalInMl / 250).round();
-      await _storageService.saveDailyGoal(dailyGoalInGlasses);
-      await _storageService.saveReminderMinutes(reminderMinutes);
-
-      await NotificationService.instance.scheduleHydrationReminder(
-        minutes: reminderMinutes,
-      );
-
-      await _storageService.saveLastReset(DateTime.now());
-
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 500),
-          pageBuilder: (_, animation, __) =>
-              FadeTransition(opacity: animation, child: const HomeScreen()),
-        ),
-      );
+  Future<void> _saveSetup() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
+
+    final weight = double.parse(
+      _weightController.text.trim().replaceAll(',', '.'),
+    );
+    final height = double.parse(
+      _heightController.text.trim().replaceAll(',', '.'),
+    );
+    final reminderMinutes = int.parse(_reminderController.text.trim());
+    final userData = UserData(
+      weight: weight,
+      height: height,
+      reminderMinutes: reminderMinutes,
+    );
+
+    await _storageService.saveUserData(userData);
+
+    final dailyGoalInMl = weight * 35;
+    final dailyGoalInGlasses = (dailyGoalInMl / 250).round();
+    await _storageService.saveDailyGoal(dailyGoalInGlasses);
+    await _storageService.saveReminderMinutes(reminderMinutes);
+
+    await NotificationService.instance.scheduleHydrationReminder(
+      minutes: reminderMinutes,
+    );
+
+    await _storageService.saveLastReset(DateTime.now());
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 500),
+        pageBuilder: (_, animation, __) =>
+            FadeTransition(opacity: animation, child: const HomeScreen()),
+      ),
+    );
   }
 
   @override
@@ -98,8 +105,14 @@ class _SetupScreenState extends State<SetupScreen> {
                         ),
                         keyboardType: TextInputType.number,
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Por favor ingresa tu peso';
+                          }
+                          final parsed = double.tryParse(
+                            value.trim().replaceAll(',', '.'),
+                          );
+                          if (parsed == null || parsed <= 0) {
+                            return 'Ingresa un peso válido mayor a 0';
                           }
                           return null;
                         },
@@ -113,8 +126,14 @@ class _SetupScreenState extends State<SetupScreen> {
                         ),
                         keyboardType: TextInputType.number,
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Por favor ingresa tu altura';
+                          }
+                          final parsed = double.tryParse(
+                            value.trim().replaceAll(',', '.'),
+                          );
+                          if (parsed == null || parsed <= 0) {
+                            return 'Ingresa una altura válida mayor a 0';
                           }
                           return null;
                         },
@@ -129,10 +148,10 @@ class _SetupScreenState extends State<SetupScreen> {
                         ),
                         keyboardType: TextInputType.number,
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Configura cada cuánto recordarte';
                           }
-                          final parsed = int.tryParse(value);
+                          final parsed = int.tryParse(value.trim());
                           if (parsed == null || parsed < 15) {
                             return 'Usa un valor de 15 minutos o más';
                           }

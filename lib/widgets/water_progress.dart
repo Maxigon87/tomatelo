@@ -6,11 +6,7 @@ class WaterProgress extends StatefulWidget {
   final int current;
   final int total;
 
-  const WaterProgress({
-    super.key,
-    required this.current,
-    required this.total,
-  });
+  const WaterProgress({super.key, required this.current, required this.total});
 
   @override
   State<WaterProgress> createState() => _WaterProgressState();
@@ -37,7 +33,9 @@ class _WaterProgressState extends State<WaterProgress>
 
   @override
   Widget build(BuildContext context) {
-    final progress = widget.total == 0 ? 0.0 : (widget.current / widget.total).clamp(0.0, 1.0);
+    final progress = widget.total == 0
+        ? 0.0
+        : (widget.current / widget.total).clamp(0.0, 1.0);
 
     return SizedBox(
       width: 210,
@@ -79,7 +77,10 @@ class _WaterProgressState extends State<WaterProgress>
                 height: 190,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 3),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    width: 3,
+                  ),
                 ),
               ),
               Column(
@@ -88,11 +89,14 @@ class _WaterProgressState extends State<WaterProgress>
                   Text(
                     '${widget.current} / ${widget.total}',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  const Text('glasses', style: TextStyle(color: Colors.white70)),
+                  const Text(
+                    'glasses',
+                    style: TextStyle(color: Colors.white70),
+                  ),
                 ],
               ),
             ],
@@ -137,7 +141,10 @@ class _WavePainter extends CustomPainter {
     final bubblePaint = Paint()..color = Colors.white.withValues(alpha: 0.3);
     for (int i = 0; i < 6; i++) {
       final dx = (i * 31.0 + phase * 10) % size.width;
-      final dy = fillY + 20 + (i * 12.0) % (size.height - fillY).clamp(12.0, size.height);
+      final dy =
+          fillY +
+          20 +
+          (i * 12.0) % (size.height - fillY).clamp(12.0, size.height);
       canvas.drawCircle(Offset(dx, dy), 2.8, bubblePaint);
     }
   }

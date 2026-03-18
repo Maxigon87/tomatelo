@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:tomatelo/services/hydration_advisor.dart';
 import 'package:tomatelo/services/storage_service.dart';
 import 'package:tomatelo/theme/app_theme.dart';
+import 'package:tomatelo/utils/constants.dart';
 import 'package:tomatelo/widgets/droplet_animation.dart';
 import 'package:tomatelo/widgets/water_button.dart';
 import 'package:tomatelo/widgets/water_progress.dart';
@@ -15,6 +17,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _storageService = StorageService();
+  final _hydrationAdvisor = const HydrationAdvisor();
   int _glassesToday = 0;
   int _glassesYesterday = 0;
   int _dailyGoal = 0;
@@ -22,11 +25,50 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _dropTrigger = false;
   bool _goalCelebrated = false;
   bool _tooMuchWaterWarned = false;
+  HydrationAdvice? _hydrationAdvice;
+  late final DateTime _dayStartTime;
+  late final DateTime _dayEndTime;
+  DateTime _now = DateTime.now();
+  late final Duration _hydrationRefresh;
 
   @override
   void initState() {
     super.initState();
+    final today = DateTime.now();
+    _dayStartTime = DateTime(today.year, today.month, today.day, 8);
+    _dayEndTime = DateTime(today.year, today.month, today.day, 22);
+    _hydrationRefresh = const Duration(minutes: 1);
     _initializeScreen();
+    _startAdvisorRefresh();
+  }
+
+  void _startAdvisorRefresh() {
+    Future<void>.delayed(_hydrationRefresh, () {
+      if (!mounted) return;
+      setState(() {
+        _now = DateTime.now();
+        _refreshHydrationAdvice();
+      });
+      _startAdvisorRefresh();
+    });
+  }
+
+  void _refreshHydrationAdvice() {
+    if (_dailyGoal <= 0) {
+      _hydrationAdvice = null;
+      return;
+    }
+
+    final totalMl = _dailyGoal * AppConstants.waterStep;
+    final consumedMl = _glassesToday * AppConstants.waterStep;
+
+    _hydrationAdvice = _hydrationAdvisor.calculate(
+      totalMl: totalMl.toDouble(),
+      consumedMl: consumedMl.toDouble(),
+      startTime: _dayStartTime,
+      endTime: _dayEndTime,
+      now: _now,
+    );
   }
 
   Future<void> _initializeScreen() async {
@@ -47,6 +89,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _weeklyData = weeklyData;
       _goalCelebrated = glassesToday >= dailyGoal && dailyGoal > 0;
       _tooMuchWaterWarned = false;
+      _now = DateTime.now();
+      _refreshHydrationAdvice();
     });
   }
 
@@ -101,6 +145,8 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _glassesToday++;
       _dropTrigger = !_dropTrigger;
+      _now = DateTime.now();
+      _refreshHydrationAdvice();
     });
     _storageService.saveGlassesToday(_glassesToday);
 
@@ -204,6 +250,69 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     const SizedBox(height: 18),
+                    if (_hydrationAdvice != null) ...[
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Asistente inteligente',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Actual: ${_mlFromGlasses(_glassesToday).round()} ml · Ideal: ${_hydrationAdvice!.idealMl.round()} ml',
+                              ),
+                              const SizedBox(height: 8),
+                              LinearProgressIndicator(
+                                value: _percent(_mlFromGlasses(_glassesToday), _dailyGoal * AppConstants.waterStep),
+                                minHeight: 8,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              const SizedBox(height: 8),
+                              LinearProgressIndicator(
+                                value: _percent(_hydrationAdvice!.idealMl, _dailyGoal * AppConstants.waterStep),
+                                minHeight: 8,
+                                borderRadius: BorderRadius.circular(12),
+                                color: AppTheme.primaryBlue.withValues(
+                                  alpha: 0.55,
+                                ),
+                                backgroundColor: AppTheme.primaryBlue.withValues(
+                                  alpha: 0.15,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Text('Estado: ${_hydrationAdvice!.status}'),
+                              const SizedBox(height: 6),
+                              Text(_hydrationAdvice!.message),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Tomá ahora: ${_hydrationAdvice!.recommendedMlNow.round()} ml · cada ${_hydrationAdvice!.recommendedIntervalMinutes} min',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              if (_hydrationAdvice!.unsafeToCatchUp) ...[
+                                const SizedBox(height: 10),
+                                Text(
+                                  _hydrationAdvice!.warning ?? '',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.error,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(20),
@@ -256,5 +365,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  double _mlFromGlasses(int glasses) => glasses * AppConstants.waterStep;
+
+  double _percent(num value, num total) {
+    if (total <= 0) {
+      return 0;
+    }
+    return (value / total).clamp(0, 1).toDouble();
   }
 }

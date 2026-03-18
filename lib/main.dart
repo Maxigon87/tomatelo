@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:tomatelo/screens/home_screen.dart';
 import 'package:tomatelo/screens/setup_screen.dart';
 import 'package:tomatelo/services/notification_service.dart';
 import 'package:tomatelo/services/storage_service.dart';

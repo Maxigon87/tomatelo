@@ -1,43 +1,11 @@
 import 'dart:math';
 
-/// Estados del sistema de hidratación.
-enum HydrationStatus {
-  onTrack('on_track'),
-  slightlyBehind('slightly_behind'),
-  behind('behind'),
-  critical('critical');
+import 'package:tomatelo/models/hydration_advice.dart';
 
-  const HydrationStatus(this.value);
-  final String value;
-}
+export 'package:tomatelo/models/hydration_advice.dart';
 
-class HydrationAdvice {
-  const HydrationAdvice({
-    required this.idealMl,
-    required this.remainingMl,
-    required this.mlPerHourNeeded,
-    required this.status,
-    required this.message,
-    required this.recommendedMlNow,
-    required this.recommendedIntervalMinutes,
-    required this.unsafeToCatchUp,
-    this.warning,
-  });
-
-  final double idealMl;
-  final double remainingMl;
-  final double mlPerHourNeeded;
-  final String status;
-  final String message;
-  final double recommendedMlNow;
-  final int recommendedIntervalMinutes;
-  final bool unsafeToCatchUp;
-  final String? warning;
-}
-
-/// Servicio reusable que calcula progreso ideal y recomendaciones dinámicas.
-class HydrationAdvisor {
-  const HydrationAdvisor({
+class HydrationEngine {
+  const HydrationEngine({
     this.maxMlPerHour = 800,
     this.defaultIntervalMinutes = 45,
     this.minIntervalMinutes = 20,
@@ -49,6 +17,20 @@ class HydrationAdvisor {
   final int minIntervalMinutes;
   final int maxIntervalMinutes;
   static const double maxReasonableMlPerHour = 2000;
+
+  int calculateDailyGoalInMl(double weight) {
+    if (weight <= 0) {
+      return 0;
+    }
+    return (weight * 35).round();
+  }
+
+  int calculateDailyGoalInGlasses(double dailyGoalInMl, int waterStep) {
+    if (dailyGoalInMl <= 0 || waterStep <= 0) {
+      return 0;
+    }
+    return (dailyGoalInMl / waterStep).round();
+  }
 
   HydrationAdvice calculate({
     required double totalMl,
@@ -64,11 +46,11 @@ class HydrationAdvisor {
         endTime.difference(startTime).inMinutes.clamp(0, 24 * 60);
 
     if (totalActiveMinutes == 0 || safeTotalMl == 0) {
-      return const HydrationAdvice(
+      return HydrationAdvice(
         idealMl: 0,
         remainingMl: 0,
         mlPerHourNeeded: 0,
-        status: 'on_track',
+        status: HydrationStatus.onTrack,
         message: 'Configurá un horario y meta válidos para recomendaciones.',
         recommendedMlNow: 0,
         recommendedIntervalMinutes: 60,
@@ -116,7 +98,7 @@ class HydrationAdvisor {
       mlPerHourNeeded: mlPerHourNeeded.isFinite
           ? mlPerHourNeeded.toDouble()
           : maxReasonableMlPerHour,
-      status: status.value,
+      status: status,
       message: _messageFor(status),
       recommendedMlNow: recommendedMlNow.toDouble(),
       recommendedIntervalMinutes: recommendedIntervalMinutes,
@@ -131,6 +113,9 @@ class HydrationAdvisor {
     required double delayRatio,
     required double mlPerHourNeeded,
   }) {
+    if (mlPerHourNeeded > maxMlPerHour) {
+      return HydrationStatus.critical;
+    }
     if (delayRatio <= 0.05 && mlPerHourNeeded <= maxMlPerHour * 0.6) {
       return HydrationStatus.onTrack;
     }
@@ -172,10 +157,8 @@ class HydrationAdvisor {
     final doses = max(1, (remainingMinutes / interval).ceil());
     final byDose = remainingMl / doses;
 
-    // Usamos el ml/hr que ya calculamos para inferir la dosis por intervalo.
     final byRate = mlPerHourNeeded * (interval / 60);
 
-    // Evitamos sugerir bolos demasiado grandes en una sola toma.
     final capped = min(maxMlPerHour * 0.4, max(byDose, byRate));
     return max(120, min(capped, remainingMl));
   }

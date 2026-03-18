@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:tomatelo/models/user_data.dart';
 import 'package:tomatelo/screens/home_screen.dart';
+import 'package:tomatelo/services/hydration_engine.dart';
 import 'package:tomatelo/services/notification_service.dart';
 import 'package:tomatelo/services/storage_service.dart';
 import 'package:tomatelo/theme/app_theme.dart';
+import 'package:tomatelo/utils/constants.dart';
 
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
@@ -18,6 +20,7 @@ class _SetupScreenState extends State<SetupScreen> {
   final _heightController = TextEditingController();
   final _reminderController = TextEditingController(text: '60');
   final _storageService = StorageService();
+  final _hydrationEngine = const HydrationEngine();
 
   Future<void> _saveSetup() async {
     if (!_formKey.currentState!.validate()) {
@@ -39,8 +42,11 @@ class _SetupScreenState extends State<SetupScreen> {
 
     await _storageService.saveUserData(userData);
 
-    final dailyGoalInMl = weight * 35;
-    final dailyGoalInGlasses = (dailyGoalInMl / 250).round();
+    final dailyGoalInMl = _hydrationEngine.calculateDailyGoalInMl(weight);
+    final dailyGoalInGlasses = _hydrationEngine.calculateDailyGoalInGlasses(
+      dailyGoalInMl.toDouble(),
+      AppConstants.waterStep,
+    );
     await _storageService.saveDailyGoal(dailyGoalInGlasses);
     await _storageService.saveReminderMinutes(reminderMinutes);
 

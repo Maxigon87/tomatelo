@@ -56,7 +56,7 @@ class _WaterProgressState extends State<WaterProgress>
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF4FC3F7).withValues(alpha: 0.35),
+                      color: const Color(0xFF4FC3F7).withOpacity(0.35),
                       blurRadius: 20,
                       spreadRadius: 1,
                     ),
@@ -64,12 +64,19 @@ class _WaterProgressState extends State<WaterProgress>
                 ),
               ),
               ClipOval(
-                child: CustomPaint(
-                  size: const Size(190, 190),
-                  painter: _WavePainter(
-                    phase: _waveController.value * 2 * pi,
-                    progress: progress,
-                  ),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: progress),
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeOut,
+                  builder: (context, value, child) {
+                    return CustomPaint(
+                      size: const Size(190, 190),
+                      painter: _WavePainter(
+                        phase: _waveController.value * 2 * pi,
+                        progress: value,
+                      ),
+                    );
+                  },
                 ),
               ),
               Container(

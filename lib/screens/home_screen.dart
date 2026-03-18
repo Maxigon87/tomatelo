@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:tomatelo/services/hydration_advisor.dart';
+import 'package:tomatelo/services/hydration_engine.dart';
 import 'package:tomatelo/services/storage_service.dart';
 import 'package:tomatelo/theme/app_theme.dart';
 import 'package:tomatelo/utils/constants.dart';
 import 'package:tomatelo/widgets/droplet_animation.dart';
+import 'package:tomatelo/widgets/friendly_message.dart';
 import 'package:tomatelo/widgets/water_button.dart';
 import 'package:tomatelo/widgets/water_progress.dart';
 import 'package:tomatelo/widgets/weekly_chart.dart';
@@ -17,7 +18,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _storageService = StorageService();
-  final _hydrationAdvisor = const HydrationAdvisor();
+  final _hydrationEngine = const HydrationEngine();
   int _glassesToday = 0;
   int _glassesYesterday = 0;
   int _dailyGoal = 0;
@@ -30,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final DateTime _dayEndTime;
   DateTime _now = DateTime.now();
   late final Duration _hydrationRefresh;
+  Widget? _friendlyMessage;
 
   @override
   void initState() {
@@ -62,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final totalMl = _dailyGoal * AppConstants.waterStep;
     final consumedMl = _glassesToday * AppConstants.waterStep;
 
-    _hydrationAdvice = _hydrationAdvisor.calculate(
+    _hydrationAdvice = _hydrationEngine.calculate(
       totalMl: totalMl.toDouble(),
       consumedMl: consumedMl.toDouble(),
       startTime: _dayStartTime,
@@ -124,21 +126,25 @@ class _HomeScreenState extends State<HomeScreen> {
     return _dailyGoal + 3;
   }
 
-  void _showFriendlyAlert({required String title, required String message}) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('¡Genial!'),
-          ),
-        ],
-      ),
-    );
+  void _showFriendlyMessage({
+    required String title,
+    required String message,
+    required IconData icon,
+    required Color color,
+  }) {
+    setState(() {
+      _friendlyMessage = FriendlyMessage(
+        title: title,
+        message: message,
+        icon: icon,
+        color: color,
+        onDismiss: () {
+          setState(() {
+            _friendlyMessage = null;
+          });
+        },
+      );
+    });
   }
 
   void _incrementGlasses() {
@@ -152,10 +158,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (_dailyGoal > 0 && _glassesToday >= _dailyGoal && !_goalCelebrated) {
       _goalCelebrated = true;
-      _showFriendlyAlert(
+      _showFriendlyMessage(
         title: '¡Meta cumplida! 🎉',
         message:
             '¡Excelente! Ya llegaste a tu objetivo de hoy. Ahora mantén un ritmo tranqui y escucha a tu cuerpo. 💧',
+        icon: Icons.celebration_rounded,
+        color: AppTheme.primaryBlue,
       );
     }
 
@@ -163,10 +171,12 @@ class _HomeScreenState extends State<HomeScreen> {
         _glassesToday >= _upperHydrationLimit &&
         !_tooMuchWaterWarned) {
       _tooMuchWaterWarned = true;
-      _showFriendlyAlert(
+      _showFriendlyMessage(
         title: 'Ojo, súper hidratado 😅',
         message:
             'Ya vas $_glassesToday vasos (límite sugerido: $_upperHydrationLimit). Mejor bajemos el ritmo para no pasarnos con el agua hoy.',
+        icon: Icons.warning_amber_rounded,
+        color: Colors.orange,
       );
     }
   }
@@ -190,23 +200,12 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.info_outline_rounded),
             onPressed: () {
-              showDialog<void>(
-                context: context,
-                builder: (_) => AlertDialog(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  title: const Text('Consejo de hidratación'),
-                  content: const Text(
+              _showFriendlyMessage(
+                title: 'Consejo de hidratación',
+                message:
                     '¡Vas increíble! Bebe agua de a poco durante el día y tu cuerpo te lo va a aplaudir. 👏',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Entendido'),
-                    ),
-                  ],
-                ),
+                icon: Icons.info_outline_rounded,
+                color: AppTheme.primaryBlue,
               );
             },
           ),
@@ -283,14 +282,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 minHeight: 8,
                                 borderRadius: BorderRadius.circular(12),
-                                color: AppTheme.primaryBlue.withValues(
-                                  alpha: 0.55,
-                                ),
-                                backgroundColor: AppTheme.primaryBlue
-                                    .withValues(alpha: 0.15),
+                                color: AppTheme.primaryBlue.withOpacity(0.55),
+                                backgroundColor: AppTheme.primaryBlue.withOpacity(0.15),
                               ),
                               const SizedBox(height: 10),
-                              Text('Estado: ${_hydrationAdvice!.status}'),
+                              Text('Estado: ${_hydrationAdvice!.status.value}'),
                               const SizedBox(height: 6),
                               Text(_hydrationAdvice!.message),
                               const SizedBox(height: 10),
@@ -366,6 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             DropletAnimation(trigger: _dropTrigger),
+            if (_friendlyMessage != null) _friendlyMessage!,
           ],
         ),
       ),

@@ -142,10 +142,6 @@ class _HomeScreenState extends State<HomeScreen> {
         scrolledUnderElevation: 0,
         actions: [
           IconButton(
-            icon: Image.asset('assets/images/logo.gif', width: 28, height: 28),
-            onPressed: () {},
-          ),
-          IconButton(
             icon: const Icon(Icons.info_outline_rounded),
             onPressed: () {
               showDialog<void>(

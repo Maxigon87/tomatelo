@@ -97,7 +97,7 @@ class _WaterButtonState extends State<WaterButton>
                         Icon(Icons.water_drop_rounded, color: Colors.white),
                         SizedBox(width: 10),
                         Text(
-                          'Beber un vaso de agua',
+                          'Beber un vaso',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,

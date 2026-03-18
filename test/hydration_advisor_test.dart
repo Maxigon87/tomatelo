@@ -46,5 +46,19 @@ void main() {
       expect(advice.remainingMl, 0);
       expect(advice.status, 'on_track');
     });
+
+    test('maneja tiempo restante cero con agua pendiente', () {
+      final advice = advisor.calculate(
+        totalMl: 2000,
+        consumedMl: 1000,
+        startTime: DateTime(2026, 1, 1, 8),
+        endTime: DateTime(2026, 1, 1, 20),
+        now: DateTime(2026, 1, 1, 20),
+      );
+
+      expect(advice.status, 'critical');
+      expect(advice.mlPerHourNeeded, HydrationAdvisor.maxReasonableMlPerHour);
+      expect(advice.unsafeToCatchUp, isTrue);
+    });
   });
 }

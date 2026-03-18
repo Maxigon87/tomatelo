@@ -268,21 +268,26 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 8),
                               LinearProgressIndicator(
-                                value: _percent(_mlFromGlasses(_glassesToday), _dailyGoal * AppConstants.waterStep),
+                                value: _percent(
+                                  _mlFromGlasses(_glassesToday),
+                                  _dailyGoal * AppConstants.waterStep,
+                                ),
                                 minHeight: 8,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               const SizedBox(height: 8),
                               LinearProgressIndicator(
-                                value: _percent(_hydrationAdvice!.idealMl, _dailyGoal * AppConstants.waterStep),
+                                value: _percent(
+                                  _hydrationAdvice!.idealMl,
+                                  _dailyGoal * AppConstants.waterStep,
+                                ),
                                 minHeight: 8,
                                 borderRadius: BorderRadius.circular(12),
                                 color: AppTheme.primaryBlue.withValues(
                                   alpha: 0.55,
                                 ),
-                                backgroundColor: AppTheme.primaryBlue.withValues(
-                                  alpha: 0.15,
-                                ),
+                                backgroundColor: AppTheme.primaryBlue
+                                    .withValues(alpha: 0.15),
                               ),
                               const SizedBox(height: 10),
                               Text('Estado: ${_hydrationAdvice!.status}'),
@@ -367,7 +372,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  double _mlFromGlasses(int glasses) => glasses * AppConstants.waterStep;
+  double _mlFromGlasses(int glasses) =>
+      (glasses * AppConstants.waterStep).toDouble();
 
   double _percent(num value, num total) {
     if (total <= 0) {

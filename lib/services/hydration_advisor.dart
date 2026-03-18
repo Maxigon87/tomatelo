@@ -48,6 +48,7 @@ class HydrationAdvisor {
   final int defaultIntervalMinutes;
   final int minIntervalMinutes;
   final int maxIntervalMinutes;
+  static const double maxReasonableMlPerHour = 2000;
 
   HydrationAdvice calculate({
     required double totalMl,
@@ -75,10 +76,8 @@ class HydrationAdvisor {
       );
     }
 
-    final elapsedMinutes = now
-        .difference(startTime)
-        .inMinutes
-        .clamp(0, totalActiveMinutes);
+    final elapsedMinutes =
+        now.difference(startTime).inMinutes.clamp(0, totalActiveMinutes);
 
     final remainingMinutes = max(0, totalActiveMinutes - elapsedMinutes);
     final elapsedRatio = elapsedMinutes / totalActiveMinutes;
@@ -87,29 +86,39 @@ class HydrationAdvisor {
     final remainingHours = remainingMinutes / 60;
 
     final mlPerHourNeeded = remainingHours <= 0
-        ? (remainingMl > 0 ? double.infinity : 0)
+        ? (remainingMl > 0 ? maxReasonableMlPerHour : 0)
         : remainingMl / remainingHours;
 
     final delayMl = idealMl - safeConsumedMl;
     final delayRatio = safeTotalMl == 0 ? 0 : delayMl / safeTotalMl;
 
-    final status = _pickStatus(delayRatio: delayRatio, mlPerHourNeeded: mlPerHourNeeded);
-    final unsafeToCatchUp = mlPerHourNeeded.isFinite && mlPerHourNeeded > maxMlPerHour;
+    final status = _pickStatus(
+      delayRatio: delayRatio.toDouble(),
+      mlPerHourNeeded: mlPerHourNeeded.toDouble(),
+    );
+    final unsafeToCatchUp =
+        mlPerHourNeeded.isFinite && mlPerHourNeeded > maxMlPerHour;
 
-    final recommendedIntervalMinutes = _recommendedInterval(remainingMinutes, status);
+    final recommendedIntervalMinutes = _recommendedInterval(
+      remainingMinutes,
+      status,
+    );
     final recommendedMlNow = _recommendedNow(
-      remainingMl: remainingMl,
+      remainingMl: remainingMl.toDouble(),
       remainingMinutes: remainingMinutes,
       status: status,
+      mlPerHourNeeded: mlPerHourNeeded.toDouble(),
     );
 
     return HydrationAdvice(
-      idealMl: idealMl,
-      remainingMl: remainingMl,
-      mlPerHourNeeded: mlPerHourNeeded.isFinite ? mlPerHourNeeded : maxMlPerHour,
+      idealMl: idealMl.toDouble(),
+      remainingMl: remainingMl.toDouble(),
+      mlPerHourNeeded: mlPerHourNeeded.isFinite
+          ? mlPerHourNeeded.toDouble()
+          : maxReasonableMlPerHour,
       status: status.value,
       message: _messageFor(status),
-      recommendedMlNow: recommendedMlNow,
+      recommendedMlNow: recommendedMlNow.toDouble(),
       recommendedIntervalMinutes: recommendedIntervalMinutes,
       unsafeToCatchUp: unsafeToCatchUp,
       warning: unsafeToCatchUp
@@ -153,20 +162,21 @@ class HydrationAdvisor {
     required double remainingMl,
     required int remainingMinutes,
     required HydrationStatus status,
+    required double mlPerHourNeeded,
   }) {
     if (remainingMl <= 0 || remainingMinutes <= 0) {
       return 0;
     }
 
     final interval = _recommendedInterval(remainingMinutes, status);
-    final remainingHours = remainingMinutes / 60;
     final doses = max(1, (remainingMinutes / interval).ceil());
-
     final byDose = remainingMl / doses;
-    final byRate = remainingHours <= 0 ? remainingMl : (remainingMl / remainingHours) * (interval / 60);
+
+    // Usamos el ml/hr que ya calculamos para inferir la dosis por intervalo.
+    final byRate = mlPerHourNeeded * (interval / 60);
 
     // Evitamos sugerir bolos demasiado grandes en una sola toma.
-    final capped = min(maxMlPerHour * 0.5, max(byDose, byRate));
+    final capped = min(maxMlPerHour * 0.4, max(byDose, byRate));
     return max(120, min(capped, remainingMl));
   }
 

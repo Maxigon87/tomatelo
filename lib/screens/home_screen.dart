@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tomatelo/services/hydration_engine.dart';
+import 'package:tomatelo/services/notification_service.dart';
 import 'package:tomatelo/services/storage_service.dart';
 import 'package:tomatelo/theme/app_theme.dart';
 import 'package:tomatelo/utils/constants.dart';
@@ -19,6 +20,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _storageService = StorageService();
   final _hydrationEngine = const HydrationEngine();
+  final _notificationService = NotificationService.instance;
   int _glassesToday = 0;
   int _glassesYesterday = 0;
   int _dailyGoal = 0;
@@ -32,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime _now = DateTime.now();
   late final Duration _hydrationRefresh;
   Widget? _friendlyMessage;
+  ReminderSuggestion? _reminderSuggestion;
 
   @override
   void initState() {
@@ -58,6 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _refreshHydrationAdvice() {
     if (_dailyGoal <= 0) {
       _hydrationAdvice = null;
+      _reminderSuggestion = null;
       return;
     }
 
@@ -70,6 +74,11 @@ class _HomeScreenState extends State<HomeScreen> {
       startTime: _dayStartTime,
       endTime: _dayEndTime,
       now: _now,
+    );
+    _reminderSuggestion = _notificationService.buildSuggestion(
+      now: _now,
+      fallbackMinutes: 60,
+      hydrationAdvice: _hydrationAdvice,
     );
   }
 
@@ -243,6 +252,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 26),
                     WaterButton(onPressed: _incrementGlasses),
                     const SizedBox(height: 12),
+                    if (_hydrationAdvice != null)
+                      Text(
+                        _feedbackMessage,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    if (_reminderSuggestion != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Siguiente sugerencia: ${_reminderSuggestion!.minutesUntilNextReminder} min (${_formatTime(_reminderSuggestion!.suggestedAt)})',
+                        style: Theme.of(context).textTheme.bodySmall,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                    const SizedBox(height: 8),
                     if (_dailyGoal > 0)
                       Text(
                         'Meta: $_dailyGoal vasos · Límite sugerido: $_upperHydrationLimit',
@@ -377,5 +404,25 @@ class _HomeScreenState extends State<HomeScreen> {
       return 0;
     }
     return (value / total).clamp(0, 1).toDouble();
+  }
+
+  String get _feedbackMessage {
+    if (_hydrationAdvice == null) {
+      return 'Configura una meta para ver tu progreso.';
+    }
+
+    return switch (_hydrationAdvice!.status) {
+      HydrationStatus.onTrack => 'Vas bien 💧',
+      HydrationStatus.slightlyBehind => 'Te estás quedando, tomá un poco ahora.',
+      HydrationStatus.behind => 'Te estás quedando, subamos el ritmo con calma.',
+      HydrationStatus.critical =>
+        'Estás muy atrasado hoy. Hidratate de forma progresiva.',
+    };
+  }
+
+  String _formatTime(DateTime time) {
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }

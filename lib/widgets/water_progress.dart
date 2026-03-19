@@ -15,6 +15,7 @@ class WaterProgress extends StatefulWidget {
 class _WaterProgressState extends State<WaterProgress>
     with SingleTickerProviderStateMixin {
   late final AnimationController _waveController;
+  double _animatedProgress = 0;
 
   @override
   void initState() {
@@ -23,6 +24,13 @@ class _WaterProgressState extends State<WaterProgress>
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     )..repeat();
+    _animatedProgress = _targetProgress;
+  }
+
+  @override
+  void didUpdateWidget(covariant WaterProgress oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _animatedProgress = _targetProgress;
   }
 
   @override
@@ -31,12 +39,15 @@ class _WaterProgressState extends State<WaterProgress>
     super.dispose();
   }
 
+  double get _targetProgress {
+    if (widget.total == 0) {
+      return 0;
+    }
+    return (widget.current / widget.total).clamp(0.0, 1.0);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final progress = widget.total == 0
-        ? 0.0
-        : (widget.current / widget.total).clamp(0.0, 1.0);
-
     return SizedBox(
       width: 210,
       height: 210,
@@ -65,9 +76,10 @@ class _WaterProgressState extends State<WaterProgress>
               ),
               ClipOval(
                 child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0, end: progress),
-                  duration: const Duration(milliseconds: 400),
+                  tween: Tween(begin: _animatedProgress, end: _targetProgress),
+                  duration: const Duration(milliseconds: 550),
                   curve: Curves.easeOut,
+                  onEnd: () => _animatedProgress = _targetProgress,
                   builder: (context, value, child) {
                     return CustomPaint(
                       size: const Size(190, 190),

@@ -15,6 +15,7 @@ class _WaterButtonState extends State<WaterButton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final AudioPlayer _player;
+  bool _isHandlingPress = false;
 
   @override
   void initState() {
@@ -30,14 +31,27 @@ class _WaterButtonState extends State<WaterButton>
   }
 
   Future<void> _handlePress() async {
-    await _controller.reverse();
-    _controller.forward();
+    if (_isHandlingPress) {
+      return;
+    }
+    _isHandlingPress = true;
+
     widget.onPressed();
 
     if (await Vibration.hasVibrator() ?? false) {
       Vibration.vibrate(duration: 50);
     }
     await _player.play(AssetSource('sounds/water_drop.wav'));
+    await _controller.forward();
+    _isHandlingPress = false;
+  }
+
+  void _handleTapDown(TapDownDetails details) {
+    _controller.reverse();
+  }
+
+  void _handleTapCancel() {
+    _controller.forward();
   }
 
   @override
@@ -78,6 +92,8 @@ class _WaterButtonState extends State<WaterButton>
               borderRadius: BorderRadius.circular(28),
               splashColor: Colors.white.withOpacity(0.5),
               highlightColor: Colors.white.withOpacity(0.25),
+              onTapDown: _handleTapDown,
+              onTapCancel: _handleTapCancel,
               onTap: _handlePress,
               child: Stack(
                 alignment: Alignment.center,

@@ -1,5 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:tomatelo/models/hydration_advice.dart';
+
+class ReminderSuggestion {
+  const ReminderSuggestion({
+    required this.minutesUntilNextReminder,
+    required this.suggestedAt,
+    required this.reason,
+  });
+
+  final int minutesUntilNextReminder;
+  final DateTime suggestedAt;
+  final String reason;
+}
 
 class NotificationService {
   NotificationService._();
@@ -8,6 +21,8 @@ class NotificationService {
 
   static const String _channelKey = 'hydration_reminders';
   static const int _reminderId = 1001;
+  static const int _minReminderMinutes = 15;
+  static const int _maxReminderMinutes = 120;
 
   Future<void> initialize() async {
     await AwesomeNotifications().initialize(null, [
@@ -33,7 +48,7 @@ class NotificationService {
   Future<void> scheduleHydrationReminder({required int minutes}) async {
     await cancelHydrationReminder();
 
-    final safeMinutes = minutes < 15 ? 15 : minutes;
+    final safeMinutes = _sanitizeMinutes(minutes);
     final messages = <String>[
       'Tu botella te extraña 💧 ¡Hora de un sorbito feliz!',
       'Mini pausa acuática 🚰 Tu yo del futuro te lo agradecerá.',
@@ -59,5 +74,42 @@ class NotificationService {
 
   Future<void> cancelHydrationReminder() async {
     await AwesomeNotifications().cancel(_reminderId);
+  }
+
+  ReminderSuggestion buildSuggestion({
+    required DateTime now,
+    required int fallbackMinutes,
+    HydrationAdvice? hydrationAdvice,
+  }) {
+    final computedMinutes = switch (hydrationAdvice?.status) {
+      HydrationStatus.critical => 20,
+      HydrationStatus.behind => 30,
+      HydrationStatus.slightlyBehind => 45,
+      HydrationStatus.onTrack => hydrationAdvice?.recommendedIntervalMinutes,
+      null => fallbackMinutes,
+    };
+
+    final minutesUntilNextReminder = _sanitizeMinutes(
+      computedMinutes ?? fallbackMinutes,
+    );
+    final reason = switch (hydrationAdvice?.status) {
+      HydrationStatus.critical => 'Recordatorio intensivo por atraso alto.',
+      HydrationStatus.behind =>
+        'Recordatorio frecuente para recuperar el ritmo.',
+      HydrationStatus.slightlyBehind =>
+        'Recordatorio moderado para mantener constancia.',
+      HydrationStatus.onTrack => 'Vas bien, mantenemos un ritmo saludable.',
+      null => 'Recordatorio base de hidratación.',
+    };
+
+    return ReminderSuggestion(
+      minutesUntilNextReminder: minutesUntilNextReminder,
+      suggestedAt: now.add(Duration(minutes: minutesUntilNextReminder)),
+      reason: reason,
+    );
+  }
+
+  int _sanitizeMinutes(int minutes) {
+    return minutes.clamp(_minReminderMinutes, _maxReminderMinutes).toInt();
   }
 }

@@ -431,13 +431,16 @@ class _HomeScreenState extends State<HomeScreen> {
     };
   }
 
-  // Calculamos el estado de ánimo según el ingeniero de hidratación
-  PetMood get _petMood {
-    // Si no hay meta configurada o el motor indica que vamos bien, está feliz.
-    final isOnTrack =
-        _hydrationAdvice == null ||
-        _hydrationAdvice!.status == HydrationStatus.onTrack;
+  // Calculamos el estado de ánimo según el ingeniero de hidratación.
+  HydrationPetMood get _petMood {
+    if (_hydrationAdvice == null) {
+      return HydrationPetMood.normal;
+    }
 
-    return isOnTrack ? PetMood.happy : PetMood.sad;
+    return switch (_hydrationAdvice!.status) {
+      HydrationStatus.onTrack => HydrationPetMood.happy,
+      HydrationStatus.slightlyBehind => HydrationPetMood.normal,
+      HydrationStatus.behind || HydrationStatus.critical => HydrationPetMood.tired,
+    };
   }
 }

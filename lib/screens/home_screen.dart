@@ -431,16 +431,11 @@ class _HomeScreenState extends State<HomeScreen> {
     };
   }
 
-  // Calculamos el estado de ánimo según el ingeniero de hidratación.
+  // Si vamos al día con el asistente la gota está feliz y con color.
+  // Si vamos atrasados, la mostramos triste y en gris.
   HydrationPetMood get _petMood {
-    if (_hydrationAdvice == null) {
-      return HydrationPetMood.normal;
-    }
-
-    return switch (_hydrationAdvice!.status) {
-      HydrationStatus.onTrack => HydrationPetMood.happy,
-      HydrationStatus.slightlyBehind => HydrationPetMood.normal,
-      HydrationStatus.behind || HydrationStatus.critical => HydrationPetMood.tired,
-    };
+    final status = _hydrationAdvice?.status;
+    final isOnTrack = status == null || status == HydrationStatus.onTrack;
+    return isOnTrack ? HydrationPetMood.happy : HydrationPetMood.tired;
   }
 }

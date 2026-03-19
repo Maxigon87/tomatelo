@@ -175,7 +175,10 @@ class _Eye extends StatelessWidget {
     return Container(
       width: 10,
       height: 10,
-      decoration: const BoxDecoration(color: Colors.black87, shape: BoxShape.circle),
+      decoration: const BoxDecoration(
+        color: Colors.black87,
+        shape: BoxShape.circle,
+      ),
     );
   }
 }
@@ -188,7 +191,10 @@ class _Mouth extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (mood) {
-      HydrationPetMood.happy => const _Arc(stroke: 3, width: 24, height: 12),
+      HydrationPetMood.happy => const RotatedBox(
+        quarterTurns: 2,
+        child: _Arc(stroke: 3, width: 24, height: 12),
+      ),
       HydrationPetMood.normal => Container(
         width: 16,
         height: 4,
@@ -197,8 +203,7 @@ class _Mouth extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
         ),
       ),
-      HydrationPetMood.tired =>
-        const RotatedBox(quarterTurns: 2, child: _Arc(stroke: 3, width: 20, height: 8)),
+      HydrationPetMood.tired => const _Arc(stroke: 3, width: 20, height: 8),
     };
   }
 }
@@ -212,10 +217,7 @@ class _Arc extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      size: Size(width, height),
-      painter: _ArcPainter(stroke),
-    );
+    return CustomPaint(size: Size(width, height), painter: _ArcPainter(stroke));
   }
 }
 
@@ -248,10 +250,22 @@ class _DropPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final path = Path()
       ..moveTo(size.width / 2, 0)
-      ..cubicTo(size.width * 0.86, size.height * 0.2, size.width * 0.95,
-          size.height * 0.62, size.width / 2, size.height)
-      ..cubicTo(size.width * 0.05, size.height * 0.62, size.width * 0.14,
-          size.height * 0.2, size.width / 2, 0)
+      ..cubicTo(
+        size.width * 0.86,
+        size.height * 0.2,
+        size.width * 0.95,
+        size.height * 0.62,
+        size.width / 2,
+        size.height,
+      )
+      ..cubicTo(
+        size.width * 0.05,
+        size.height * 0.62,
+        size.width * 0.14,
+        size.height * 0.2,
+        size.width / 2,
+        0,
+      )
       ..close();
 
     final fill = Paint()
@@ -273,7 +287,11 @@ class _DropPainter extends CustomPainter {
     final glare = Path()
       ..moveTo(size.width * 0.43, size.height * 0.24)
       ..quadraticBezierTo(
-          size.width * 0.26, size.height * 0.34, size.width * 0.32, size.height * 0.55);
+        size.width * 0.26,
+        size.height * 0.34,
+        size.width * 0.32,
+        size.height * 0.55,
+      );
 
     canvas.drawPath(
       glare,
@@ -286,7 +304,8 @@ class _DropPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _DropPainter oldDelegate) => oldDelegate.color != color;
+  bool shouldRepaint(covariant _DropPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _HappyBubbles {
@@ -297,29 +316,25 @@ class _HappyBubbles {
       (x: size * 0.03, y: -size * 0.45, s: 5),
     ];
 
-    return particles
-        .asMap()
-        .entries
-        .map((entry) {
-          final i = entry.key;
-          final bubble = entry.value;
-          final pulse = (math.sin((tick * math.pi * 2) + i) + 1) / 2;
-          return Positioned(
-            left: size / 2 + bubble.x,
-            top: size / 2 + bubble.y - pulse * 6,
-            child: Opacity(
-              opacity: 0.35 + pulse * 0.5,
-              child: Container(
-                width: bubble.s,
-                height: bubble.s,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.9),
-                ),
-              ),
+    return particles.asMap().entries.map((entry) {
+      final i = entry.key;
+      final bubble = entry.value;
+      final pulse = (math.sin((tick * math.pi * 2) + i) + 1) / 2;
+      return Positioned(
+        left: size / 2 + bubble.x,
+        top: size / 2 + bubble.y - pulse * 6,
+        child: Opacity(
+          opacity: 0.35 + pulse * 0.5,
+          child: Container(
+            width: bubble.s,
+            height: bubble.s,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.9),
             ),
-          );
-        })
-        .toList();
+          ),
+        ),
+      );
+    }).toList();
   }
 }

@@ -38,7 +38,7 @@ class _WaterButtonState extends State<WaterButton>
 
     widget.onPressed();
 
-    if (await Vibration.hasVibrator() ?? false) {
+    if (await Vibration.hasVibrator()) {
       Vibration.vibrate(duration: 50);
     }
     await _player.play(AssetSource('sounds/water_drop.wav'));

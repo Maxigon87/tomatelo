@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:vibration/vibration.dart';
@@ -15,6 +17,7 @@ class _WaterButtonState extends State<WaterButton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final AudioPlayer _player;
+  final Random _random = Random();
   bool _isHandlingPress = false;
 
   @override
@@ -28,6 +31,22 @@ class _WaterButtonState extends State<WaterButton>
       value: 1.0,
     );
     _player = AudioPlayer();
+    _configurePlayer();
+  }
+
+  Future<void> _configurePlayer() async {
+    await _player.setPlayerMode(PlayerMode.lowLatency);
+    await _player.setReleaseMode(ReleaseMode.stop);
+  }
+
+  Future<void> _playWaterDrop() async {
+    final playbackRate = 0.92 + (_random.nextDouble() * 0.18);
+    final volume = 0.78 + (_random.nextDouble() * 0.17);
+
+    await _player.stop();
+    await _player.setPlaybackRate(playbackRate);
+    await _player.setVolume(volume.clamp(0.0, 1.0).toDouble());
+    await _player.play(AssetSource('sounds/water_drop.wav'));
   }
 
   Future<void> _handlePress() async {
@@ -39,9 +58,9 @@ class _WaterButtonState extends State<WaterButton>
     widget.onPressed();
 
     if (await Vibration.hasVibrator()) {
-      Vibration.vibrate(duration: 50);
+      Vibration.vibrate(duration: 50, amplitude: 100);
     }
-    await _player.play(AssetSource('sounds/water_drop.wav'));
+    await _playWaterDrop();
     await _controller.forward();
     _isHandlingPress = false;
   }

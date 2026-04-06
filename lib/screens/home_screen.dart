@@ -6,6 +6,7 @@ import 'package:tomatelo/theme/app_theme.dart';
 import 'package:tomatelo/utils/constants.dart';
 import 'package:tomatelo/widgets/droplet_animation.dart';
 import 'package:tomatelo/widgets/friendly_message.dart';
+import 'package:tomatelo/widgets/hydration_pet.dart';
 import 'package:tomatelo/widgets/water_button.dart';
 import 'package:tomatelo/widgets/water_progress.dart';
 import 'package:tomatelo/widgets/weekly_chart.dart';
@@ -35,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final Duration _hydrationRefresh;
   Widget? _friendlyMessage;
   ReminderSuggestion? _reminderSuggestion;
+  DateTime? _lastDrinkAt;
 
   @override
   void initState() {
@@ -92,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final glassesYesterday = await _storageService.getGlassesYesterday();
     final dailyGoal = await _storageService.getDailyGoal();
     final weeklyData = await _storageService.getWeeklyData();
+    final lastDrinkAt = await _storageService.getLastDrinkAt();
     if (!mounted) return;
     setState(() {
       _glassesToday = glassesToday;
@@ -101,6 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _goalCelebrated = glassesToday >= dailyGoal && dailyGoal > 0;
       _tooMuchWaterWarned = false;
       _now = DateTime.now();
+      _lastDrinkAt = lastDrinkAt;
       _refreshHydrationAdvice();
     });
   }
@@ -124,6 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await _storageService.saveWeeklyData(weeklyData);
       await _storageService.saveGlassesYesterday(storedGlassesToday);
       await _storageService.saveGlassesToday(0);
+      await _storageService.clearLastDrinkAt();
       await _storageService.saveLastReset(now);
     }
   }
@@ -161,9 +166,11 @@ class _HomeScreenState extends State<HomeScreen> {
       _glassesToday++;
       _dropTrigger = !_dropTrigger;
       _now = DateTime.now();
+      _lastDrinkAt = _now;
       _refreshHydrationAdvice();
     });
     _storageService.saveGlassesToday(_glassesToday);
+    _storageService.saveLastDrinkAt(_lastDrinkAt!);
 
     if (_dailyGoal > 0 && _glassesToday >= _dailyGoal && !_goalCelebrated) {
       _goalCelebrated = true;
@@ -235,10 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const SizedBox(height: 6),
-                    const Image(
-                      image: AssetImage('assets/images/icono.png'),
-                      height: 110,
-                    ),
+                    HydrationPet(mood: _petMood, size: 112),
                     const SizedBox(height: 24),
                     WaterProgress(current: _glassesToday, total: _dailyGoal),
                     const SizedBox(height: 14),
@@ -310,7 +314,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 minHeight: 8,
                                 borderRadius: BorderRadius.circular(12),
                                 color: AppTheme.primaryBlue.withOpacity(0.55),
-                                backgroundColor: AppTheme.primaryBlue.withOpacity(0.15),
+                                backgroundColor: AppTheme.primaryBlue
+                                    .withOpacity(0.15),
                               ),
                               const SizedBox(height: 10),
                               Text('Estado: ${_hydrationAdvice!.status.value}'),
@@ -396,6 +401,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String _formatTime(DateTime time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  }
+
   double _mlFromGlasses(int glasses) =>
       (glasses * AppConstants.waterStep).toDouble();
 
@@ -413,16 +422,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return switch (_hydrationAdvice!.status) {
       HydrationStatus.onTrack => 'Vas bien 💧',
-      HydrationStatus.slightlyBehind => 'Te estás quedando, tomá un poco ahora.',
-      HydrationStatus.behind => 'Te estás quedando, subamos el ritmo con calma.',
+      HydrationStatus.slightlyBehind =>
+        'Te estás quedando, tomá un poco ahora.',
+      HydrationStatus.behind =>
+        'Te estás quedando, subamos el ritmo con calma.',
       HydrationStatus.critical =>
-        'Estás muy atrasado hoy. Hidratate de forma progresiva.',
+        'Te queda mucha agua en poco tiempo. Evitá tomar todo junto.',
     };
   }
 
-  String _formatTime(DateTime time) {
-    final hour = time.hour.toString().padLeft(2, '0');
-    final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+  // Si vamos al día con el asistente la gota está feliz y con color.
+  // Si vamos atrasados, la mostramos triste y en gris.
+  HydrationPetMood get _petMood {
+    final status = _hydrationAdvice?.status;
+    final isOnTrack = status == null || status == HydrationStatus.onTrack;
+    return isOnTrack ? HydrationPetMood.happy : HydrationPetMood.tired;
   }
 }

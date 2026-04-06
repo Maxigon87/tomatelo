@@ -10,6 +10,7 @@ class StorageService {
   static const String _dailyGoalKey = 'dailyGoal';
   static const String _glassesTodayKey = 'glassesToday';
   static const String _glassesYesterdayKey = 'glassesYesterday';
+  static const String _lastDrinkAtKey = 'lastDrinkAt';
   static const String _lastResetKey = 'lastReset';
   static const String _weeklyDataKey = 'weeklyData';
 
@@ -90,6 +91,25 @@ class StorageService {
   Future<int> getGlassesYesterday() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt(_glassesYesterdayKey) ?? 0;
+  }
+
+  Future<void> saveLastDrinkAt(DateTime date) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastDrinkAtKey, date.toIso8601String());
+  }
+
+  Future<DateTime?> getLastDrinkAt() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_lastDrinkAtKey);
+    if (value == null) {
+      return null;
+    }
+    return DateTime.tryParse(value);
+  }
+
+  Future<void> clearLastDrinkAt() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_lastDrinkAtKey);
   }
 
   Future<void> saveLastReset(DateTime date) async {

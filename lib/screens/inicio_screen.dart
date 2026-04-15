@@ -48,6 +48,14 @@ class InicioScreen extends StatelessWidget {
                   ),
                 ),
                 const Spacer(flex: 1),
+                Text(
+                  'Design: EMGI',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55),
+                  ),
+                ),
+                const SizedBox(height: 16),
               ],
             ),
           ),

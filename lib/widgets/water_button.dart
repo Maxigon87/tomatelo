@@ -134,10 +134,10 @@ class _WaterButtonState extends State<WaterButton>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.water_drop_rounded, color: Colors.white),
+                        Icon(Icons.add_rounded, color: Colors.white),
                         SizedBox(width: 10),
                         Text(
-                          'Beber un vaso',
+                          'Un vasito',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,

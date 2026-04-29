@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:tomatelo/services/hydration_engine.dart';
 import 'package:tomatelo/services/notification_service.dart';
 import 'package:tomatelo/services/storage_service.dart';
@@ -86,7 +87,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _initializeScreen() async {
     await _resetDataAtMidnight();
+    await _syncFromWidget();
     await _loadData();
+  }
+
+  Future<void> _syncFromWidget() async {
+    final water = await HomeWidget.getWidgetData<int>('water', defaultValue: 0) ?? 0;
+    final current = await _storageService.getGlassesToday();
+    if (water > current) {
+      await _storageService.saveGlassesToday(water);
+    }
+  }
+
+  Future<void> _updateWidget(int water) async {
+    await HomeWidget.saveWidgetData('water', water);
+    await HomeWidget.updateWidget(
+      androidName: 'WaterWidgetProvider',
+      qualifiedAndroidName: 'com.example.tomatelo.WaterWidgetProvider',
+    );
   }
 
   Future<void> _loadData() async {
@@ -171,6 +189,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     _storageService.saveGlassesToday(_glassesToday);
     _storageService.saveLastDrinkAt(_lastDrinkAt!);
+    _updateWidget(_glassesToday);
 
     if (_dailyGoal > 0 && _glassesToday >= _dailyGoal && !_goalCelebrated) {
       _goalCelebrated = true;

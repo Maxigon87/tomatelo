@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:tomatelo/screens/home_screen.dart';
 import 'package:tomatelo/screens/setup_screen.dart';
 import 'package:tomatelo/theme/app_theme.dart';
 
@@ -53,7 +52,7 @@ class InicioScreen extends StatelessWidget {
                   'Design: EMGI',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
                   ),
                 ),
                 const SizedBox(height: 16),

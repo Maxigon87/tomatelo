@@ -10,7 +10,10 @@ void main() {
       final day6 = planner.buildPlan(weightKg: 70, dayIndex: 6);
       final day10 = planner.buildPlan(weightKg: 70, dayIndex: 10);
 
-      expect(day1.targetGoalMl, (day1.idealGoalMl * 0.60).round());
+      // (70 * 35) = 2450 base.
+      // min factor = 0.70 clamping. So target cannot be less than 2450 * 0.70 = 1715.
+      // Therefore, day1 should be clamped to 1715.
+      expect(day1.targetGoalMl, (day1.idealGoalMl * 0.70).round());
       expect(day6.targetGoalMl, (day6.idealGoalMl * 0.75).round());
       expect(day10.targetGoalMl, day10.idealGoalMl);
     });

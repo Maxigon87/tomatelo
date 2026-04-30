@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tomatelo/screens/home_screen.dart';
+import 'package:tomatelo/screens/setup_screen.dart';
 import 'package:tomatelo/theme/app_theme.dart';
 
 class InicioScreen extends StatelessWidget {
@@ -29,7 +30,7 @@ class InicioScreen extends StatelessWidget {
                     onPressed: () {
                       Navigator.of(context).pushReplacement(
                         MaterialPageRoute(
-                          builder: (context) => const HomeScreen(),
+                          builder: (context) => const SetupScreen(),
                         ),
                       );
                     },

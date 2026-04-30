@@ -22,6 +22,29 @@ class _SetupScreenState extends State<SetupScreen> {
   final _storageService = StorageService();
   final _hydrationEngine = const HydrationEngine();
 
+
+  @override
+  void initState() {
+    super.initState();
+    _redirectIfUserAlreadyConfigured();
+  }
+
+  Future<void> _redirectIfUserAlreadyConfigured() async {
+    final userData = await _storageService.getUserData();
+    if (userData == null || !mounted) {
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (_, animation, __) =>
+            FadeTransition(opacity: animation, child: const HomeScreen()),
+      ),
+    );
+  }
+
   Future<void> _saveSetup() async {
     if (!_formKey.currentState!.validate()) {
       return;

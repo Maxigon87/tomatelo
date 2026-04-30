@@ -178,7 +178,7 @@ class AdaptiveHydrationPlanner {
 
     final hoursLeft = max(0.0, activeUntil.difference(now).inMinutes / 60);
     final mlPerHourNeeded = hoursLeft == 0
-        ? (remainingMl > 0 ? remainingMl.toDouble() : 0)
+        ? (remainingMl > 0 ? remainingMl.toDouble() : 0.0)
         : (remainingMl / hoursLeft);
 
     final remainingGlasses = toGlasses(remainingMl, glassSizeMl: glassSizeMl);

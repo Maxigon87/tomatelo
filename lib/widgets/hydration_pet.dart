@@ -166,7 +166,7 @@ class _Eye extends StatelessWidget {
         width: 16,
         height: 7,
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.55),
+          color: Colors.black.withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(20),
         ),
       );
@@ -199,7 +199,7 @@ class _Mouth extends StatelessWidget {
         width: 16,
         height: 4,
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.75),
+          color: Colors.black.withValues(alpha: 0.75),
           borderRadius: BorderRadius.circular(20),
         ),
       ),
@@ -228,7 +228,7 @@ class _ArcPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.black.withOpacity(0.85)
+      ..color = Colors.black.withValues(alpha: 0.85)
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round;
@@ -272,14 +272,14 @@ class _DropPainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [color.withOpacity(0.92), color.withOpacity(0.65)],
+        colors: [color.withValues(alpha: 0.92), color.withValues(alpha: 0.65)],
       ).createShader(Offset.zero & size);
 
     canvas.drawPath(path, fill);
     canvas.drawPath(
       path,
       Paint()
-        ..color = Colors.white.withOpacity(0.28)
+        ..color = Colors.white.withValues(alpha: 0.28)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.1,
     );
@@ -296,7 +296,7 @@ class _DropPainter extends CustomPainter {
     canvas.drawPath(
       glare,
       Paint()
-        ..color = Colors.white.withOpacity(0.35)
+        ..color = Colors.white.withValues(alpha: 0.35)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 4
         ..strokeCap = StrokeCap.round,
@@ -330,7 +330,7 @@ class _HappyBubbles {
             height: bubble.s,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
         ),

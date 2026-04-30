@@ -332,9 +332,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 minHeight: 8,
                                 borderRadius: BorderRadius.circular(12),
-                                color: AppTheme.primaryBlue.withOpacity(0.55),
+                                color: AppTheme.primaryBlue.withValues(alpha: 0.55),
                                 backgroundColor: AppTheme.primaryBlue
-                                    .withOpacity(0.15),
+                                    .withValues(alpha: 0.15),
                               ),
                               const SizedBox(height: 10),
                               Text('Estado: ${_hydrationAdvice!.status.value}'),

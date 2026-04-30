@@ -67,7 +67,7 @@ class _WaterProgressState extends State<WaterProgress>
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF4FC3F7).withOpacity(0.35),
+                      color: const Color(0xFF4FC3F7).withValues(alpha: 0.35),
                       blurRadius: 20,
                       spreadRadius: 1,
                     ),

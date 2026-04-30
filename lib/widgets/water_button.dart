@@ -89,7 +89,7 @@ class _WaterButtonState extends State<WaterButton>
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF4FC3F7).withOpacity(0.45),
+              color: const Color(0xFF4FC3F7).withValues(alpha: 0.45),
               blurRadius: 24,
               spreadRadius: 2,
               offset: const Offset(0, 8),
@@ -109,8 +109,8 @@ class _WaterButtonState extends State<WaterButton>
             ),
             child: InkWell(
               borderRadius: BorderRadius.circular(28),
-              splashColor: Colors.white.withOpacity(0.5),
-              highlightColor: Colors.white.withOpacity(0.25),
+              splashColor: Colors.white.withValues(alpha: 0.5),
+              highlightColor: Colors.white.withValues(alpha: 0.25),
               onTapDown: _handleTapDown,
               onTapCancel: _handleTapCancel,
               onTap: _handlePress,
@@ -125,7 +125,7 @@ class _WaterButtonState extends State<WaterButton>
                       height: 20,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
-                        color: Colors.white.withOpacity(0.22),
+                        color: Colors.white.withValues(alpha: 0.22),
                       ),
                     ),
                   ),

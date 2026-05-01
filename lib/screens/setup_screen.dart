@@ -8,7 +8,12 @@ import 'package:tomatelo/theme/app_theme.dart';
 import 'package:tomatelo/utils/constants.dart';
 
 class SetupScreen extends StatefulWidget {
-  const SetupScreen({super.key});
+  const SetupScreen({
+    super.key,
+    this.skipAutoRedirect = false,
+  });
+
+  final bool skipAutoRedirect;
 
   @override
   State<SetupScreen> createState() => _SetupScreenState();
@@ -26,12 +31,28 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   void initState() {
     super.initState();
+    _loadSavedData();
     _redirectIfUserAlreadyConfigured();
+  }
+
+  Future<void> _loadSavedData() async {
+    final userData = await _storageService.getUserData();
+    final reminderMinutes = await _storageService.getReminderMinutes();
+
+    if (userData == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _weightController.text = userData.weight.toString();
+      _heightController.text = userData.height.toString();
+      _reminderController.text = (reminderMinutes ?? userData.reminderMinutes).toString();
+    });
   }
 
   Future<void> _redirectIfUserAlreadyConfigured() async {
     final userData = await _storageService.getUserData();
-    if (userData == null || !mounted) {
+    if (widget.skipAutoRedirect || userData == null || !mounted) {
       return;
     }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:tomatelo/screens/setup_screen.dart';
 import 'package:tomatelo/services/hydration_engine.dart';
 import 'package:tomatelo/services/notification_service.dart';
 import 'package:tomatelo/services/storage_service.dart';
@@ -232,17 +233,48 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline_rounded),
-            onPressed: () {
-              _showFriendlyMessage(
-                title: 'Consejo de hidratación',
-                message:
-                    '¡Vas increíble! Bebe agua de a poco durante el día y tu cuerpo te lo va a aplaudir. 👏',
-                icon: Icons.info_outline_rounded,
-                color: AppTheme.primaryBlue,
-              );
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded),
+            onSelected: (value) {
+              if (value == 'info') {
+                _showFriendlyMessage(
+                  title: 'Consejo de hidratación',
+                  message:
+                      '¡Vas increíble! Bebe agua de a poco durante el día y tu cuerpo te lo va a aplaudir. 👏',
+                  icon: Icons.info_outline_rounded,
+                  color: AppTheme.primaryBlue,
+                );
+                return;
+              }
+
+              if (value == 'settings') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SetupScreen(
+                      skipAutoRedirect: true,
+                    ),
+                  ),
+                );
+              }
             },
+            itemBuilder: (context) => const [
+              PopupMenuItem<String>(
+                value: 'info',
+                child: ListTile(
+                  leading: Icon(Icons.info_outline_rounded),
+                  title: Text('Información'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'settings',
+                child: ListTile(
+                  leading: Icon(Icons.settings_outlined),
+                  title: Text('Configuración'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
         ],
       ),

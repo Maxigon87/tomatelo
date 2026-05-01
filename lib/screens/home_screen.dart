@@ -93,6 +93,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _syncFromWidget() async {
+    final lastDate = await HomeWidget.getWidgetData<String>('lastDate', defaultValue: '');
+    final currentDate = DateTime.now().toIso8601String().split('T')[0];
+
+    if (lastDate != currentDate) {
+      return; // Do not sync yesterday's widget data on a new day
+    }
+
     final water = await HomeWidget.getWidgetData<int>('water', defaultValue: 0) ?? 0;
     final current = await _storageService.getGlassesToday();
     if (water > current) {
@@ -100,8 +107,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _updateWidget(int water) async {
+  Future<void> _updateWidget(int water, int dailyGoal) async {
+    final currentDate = DateTime.now().toIso8601String().split('T')[0];
     await HomeWidget.saveWidgetData('water', water);
+    await HomeWidget.saveWidgetData('goal', dailyGoal);
+    await HomeWidget.saveWidgetData('lastDate', currentDate);
     await HomeWidget.updateWidget(
       androidName: 'WaterWidgetProvider',
       qualifiedAndroidName: 'com.example.tomatelo.WaterWidgetProvider',
@@ -126,6 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _lastDrinkAt = lastDrinkAt;
       _refreshHydrationAdvice();
     });
+    await _updateWidget(_glassesToday, _dailyGoal);
   }
 
   Future<void> _resetDataAtMidnight() async {
@@ -190,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     _storageService.saveGlassesToday(_glassesToday);
     _storageService.saveLastDrinkAt(_lastDrinkAt!);
-    _updateWidget(_glassesToday);
+    _updateWidget(_glassesToday, _dailyGoal);
 
     if (_dailyGoal > 0 && _glassesToday >= _dailyGoal && !_goalCelebrated) {
       _goalCelebrated = true;

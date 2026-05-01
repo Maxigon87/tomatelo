@@ -7,20 +7,38 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class WaterWidgetProvider : AppWidgetProvider() {
+
+    private fun getCurrentDateString(): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        return sdf.format(Date())
+    }
 
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
     ) {
+        val currentDate = getCurrentDateString()
+        val prefs = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
+
         for (appWidgetId in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
-            val prefs = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
-            val water = prefs.getInt("water", 0)
 
-            views.setTextViewText(R.id.txt_progress, "$water / 8")
+            val lastDate = prefs.getString("lastDate", "")
+            var water = prefs.getInt("water", 0)
+            val goal = prefs.getInt("goal", 8)
+
+            // Reset visual si es un nuevo día
+            if (lastDate != currentDate) {
+                water = 0
+            }
+
+            views.setTextViewText(R.id.txt_progress, "$water / $goal")
 
             val intent = Intent(context, WaterWidgetProvider::class.java).apply {
                 action = ACTION_ADD_WATER
@@ -42,10 +60,22 @@ class WaterWidgetProvider : AppWidgetProvider() {
         super.onReceive(context, intent)
 
         if (intent.action == ACTION_ADD_WATER) {
+            val currentDate = getCurrentDateString()
             val prefs = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
+            val lastDate = prefs.getString("lastDate", "")
+
             val current = prefs.getInt("water", 0)
-            val updated = current + 1
-            prefs.edit().putInt("water", updated).apply()
+
+            val updated = if (lastDate != currentDate) {
+                1 // Primer vaso del nuevo día
+            } else {
+                current + 1 // Siguiente vaso del mismo día
+            }
+
+            prefs.edit()
+                .putInt("water", updated)
+                .putString("lastDate", currentDate)
+                .apply()
 
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, WaterWidgetProvider::class.java))

@@ -9,9 +9,10 @@ void main() {
     expect(find.text('Inicio'), findsOneWidget);
 
     await tester.tap(find.byType(ElevatedButton));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('HidrataSet'), findsOneWidget);
+    expect(find.text('Configuración de Hidratación'), findsOneWidget);
     expect(find.text('Iniciar hidratación'), findsOneWidget);
   });
 }

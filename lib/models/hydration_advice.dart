@@ -1,8 +1,8 @@
 enum HydrationStatus {
-  onTrack('on_track'),
-  slightlyBehind('slightly_behind'),
-  behind('behind'),
-  critical('critical');
+  onTrack('Al día'),
+  slightlyBehind('Levemente atrasado'),
+  behind('Atrasado'),
+  critical('Crítico');
 
   const HydrationStatus(this.value);
   final String value;

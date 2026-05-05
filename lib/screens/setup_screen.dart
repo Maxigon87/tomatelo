@@ -46,7 +46,7 @@ class _SetupScreenState extends State<SetupScreen> {
     setState(() {
       _weightController.text = userData.weight.toString();
       _heightController.text = userData.height.toString();
-      _reminderController.text = (reminderMinutes ?? userData.reminderMinutes).toString();
+      _reminderController.text = reminderMinutes.toString();
     });
   }
 

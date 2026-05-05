@@ -122,7 +122,7 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('HidrataSet')),
+      appBar: AppBar(title: const Text('Configuración de Hidratación')),
       body: WaterBackground(
         child: Center(
           child: SingleChildScrollView(
@@ -142,7 +142,7 @@ class _SetupScreenState extends State<SetupScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Setea tu hidratación diaria',
+                        'Ajustemos tu hidratación diaria',
                         style: Theme.of(context).textTheme.titleLarge,
                         textAlign: TextAlign.center,
                       ),

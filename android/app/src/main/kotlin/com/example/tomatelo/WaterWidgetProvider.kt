@@ -38,7 +38,20 @@ class WaterWidgetProvider : AppWidgetProvider() {
                 water = 0
             }
 
+            val progressPercentage = if (goal > 0) {
+                ((water.toFloat() / goal) * 100).toInt()
+            } else 0
+
+            val motivationalText = when {
+                progressPercentage == 0 -> "Let's start! \uD83D\uDCA7" // 💧
+                progressPercentage < 50 -> "Keep going! \uD83D\uDCA7" // 💧
+                progressPercentage < 100 -> "Almost there! \uD83C\uDF0A" // 🌊
+                else -> "Goal reached! \uD83C\uDF89" // 🎉
+            }
+
             views.setTextViewText(R.id.txt_progress, "$water / $goal")
+            views.setTextViewText(R.id.txt_motivational, motivationalText)
+            views.setProgressBar(R.id.progress_bar, 100, progressPercentage.coerceAtMost(100), false)
 
             val intent = Intent(context, WaterWidgetProvider::class.java).apply {
                 action = ACTION_ADD_WATER

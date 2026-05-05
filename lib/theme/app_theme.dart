@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 
 class AppTheme {
@@ -111,7 +112,151 @@ class WaterBackground extends StatelessWidget {
           end: Alignment.bottomCenter,
         ),
       ),
-      child: child,
+      child: Stack(
+        children: [
+          const Positioned.fill(child: AnimatedBubbles()),
+          child,
+        ],
+      ),
     );
   }
+}
+
+class Bubble {
+  double x;
+  double y;
+  double radius;
+  double speed;
+  double drift;
+  
+  Bubble({
+    required this.x,
+    required this.y,
+    required this.radius,
+    required this.speed,
+    required this.drift,
+  });
+}
+
+class AnimatedBubbles extends StatefulWidget {
+  const AnimatedBubbles({super.key});
+
+  @override
+  State<AnimatedBubbles> createState() => _AnimatedBubblesState();
+}
+
+class _AnimatedBubblesState extends State<AnimatedBubbles> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  final List<Bubble> _bubbles = [];
+  final Random _random = Random();
+  bool _initialized = false;
+  Size _cachedSize = Size.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..addListener(() {
+        _updateBubbles();
+      })
+      ..repeat();
+  }
+
+  void _initBubbles(Size size) {
+    if (_initialized && size == _cachedSize) return;
+    _cachedSize = size;
+    _initialized = true;
+    _bubbles.clear();
+    
+    // Create groups of bubbles
+    for (int i = 0; i < 7; i++) {
+      double groupX = _random.nextDouble() * size.width;
+      double groupY = _random.nextDouble() * size.height;
+      int bubblesInGroup = _random.nextInt(4) + 3; // 3 to 6 bubbles per group
+      
+      for (int j = 0; j < bubblesInGroup; j++) {
+        _bubbles.add(Bubble(
+          x: groupX + (_random.nextDouble() - 0.5) * 60,
+          y: groupY + (_random.nextDouble() - 0.5) * 60,
+          radius: _random.nextDouble() * 10 + 4,
+          speed: _random.nextDouble() * 0.8 + 0.4,
+          drift: (_random.nextDouble() - 0.5) * 0.3,
+        ));
+      }
+    }
+  }
+
+  void _updateBubbles() {
+    if (!mounted || !_initialized || _cachedSize.height == 0) return;
+    
+    setState(() {
+      for (var bubble in _bubbles) {
+        bubble.y -= bubble.speed;
+        bubble.x += bubble.drift;
+        
+        // Add a slight sine wave drift to make it look like water
+        bubble.x += sin(bubble.y * 0.015) * 0.4;
+
+        // Reset if it goes off screen (to the bottom, as if coming from below)
+        if (bubble.y < -50) {
+          bubble.y = _cachedSize.height + 50;
+          bubble.x = _random.nextDouble() * _cachedSize.width;
+        }
+        
+        // Wrap horizontally
+        if (bubble.x < -50) bubble.x = _cachedSize.width + 50;
+        if (bubble.x > _cachedSize.width + 50) bubble.x = -50;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth > 0 && constraints.maxHeight > 0) {
+          _initBubbles(Size(constraints.maxWidth, constraints.maxHeight));
+        }
+        return CustomPaint(
+          size: Size(constraints.maxWidth, constraints.maxHeight),
+          painter: _BubblePainter(_bubbles, Theme.of(context).brightness == Brightness.dark),
+        );
+      },
+    );
+  }
+}
+
+class _BubblePainter extends CustomPainter {
+  final List<Bubble> bubbles;
+  final bool isDark;
+
+  _BubblePainter(this.bubbles, this.isDark);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = (isDark ? Colors.white : const Color(0xFF4FC3F7)).withValues(alpha: 0.12)
+      ..style = PaintingStyle.fill;
+      
+    final borderPaint = Paint()
+      ..color = (isDark ? Colors.white : const Color(0xFF4FC3F7)).withValues(alpha: 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    for (var bubble in bubbles) {
+      canvas.drawCircle(Offset(bubble.x, bubble.y), bubble.radius, paint);
+      canvas.drawCircle(Offset(bubble.x, bubble.y), bubble.radius, borderPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BubblePainter oldDelegate) => true;
 }

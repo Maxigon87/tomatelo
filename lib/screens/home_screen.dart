@@ -9,8 +9,7 @@ import 'package:tomatelo/utils/constants.dart';
 import 'package:tomatelo/widgets/droplet_animation.dart';
 import 'package:tomatelo/widgets/friendly_message.dart';
 import 'package:tomatelo/widgets/hydration_pet.dart';
-import 'package:tomatelo/widgets/water_button.dart';
-import 'package:tomatelo/widgets/water_progress.dart';
+import 'package:tomatelo/widgets/water_tracker_card.dart';
 import 'package:tomatelo/widgets/weekly_chart.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -230,12 +229,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = _dailyGoal == 0
-        ? 0
-        : (((_glassesToday > _dailyGoal ? _dailyGoal : _glassesToday) /
-                      _dailyGoal) *
-                  100)
-              .round();
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -306,17 +299,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 6),
                     HydrationPet(mood: _petMood, size: 112),
                     const SizedBox(height: 24),
-                    WaterProgress(current: _glassesToday, total: _dailyGoal),
-                    const SizedBox(height: 14),
-                    Text(
-                      '$progress% hidratado hoy',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    WaterTrackerCard(
+                      currentGlasses: _glassesToday,
+                      goalGlasses: _dailyGoal,
+                      onAddWater: _incrementGlasses,
                     ),
-                    const SizedBox(height: 26),
-                    WaterButton(onPressed: _incrementGlasses),
                     const SizedBox(height: 12),
                     if (_hydrationAdvice != null)
                       Text(
@@ -343,20 +330,48 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     const SizedBox(height: 18),
                     if (_hydrationAdvice != null) ...[
-                      Card(
+                      Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(28),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFF56CCF2),
+                              Color(0xFF2F80ED),
+                            ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF2F80ED).withValues(alpha: 0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
                         child: Padding(
-                          padding: const EdgeInsets.all(18),
+                          padding: const EdgeInsets.all(24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Asistente inteligente',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              Row(
+                                children: [
+                                  const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Asistente inteligente',
+                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 16),
                               Text(
                                 'Actual: ${_mlFromGlasses(_glassesToday).round()} ml · Ideal: ${_hydrationAdvice!.idealMl.round()} ml',
+                                style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontWeight: FontWeight.w500),
                               ),
                               const SizedBox(height: 8),
                               LinearProgressIndicator(
@@ -366,6 +381,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 minHeight: 8,
                                 borderRadius: BorderRadius.circular(12),
+                                color: Colors.white,
+                                backgroundColor: Colors.black.withValues(alpha: 0.15),
                               ),
                               const SizedBox(height: 8),
                               LinearProgressIndicator(
@@ -375,31 +392,42 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 minHeight: 8,
                                 borderRadius: BorderRadius.circular(12),
-                                color: AppTheme.primaryBlue.withValues(alpha: 0.55),
-                                backgroundColor: AppTheme.primaryBlue
-                                    .withValues(alpha: 0.15),
+                                color: Colors.white.withValues(alpha: 0.6),
+                                backgroundColor: Colors.transparent,
+                              ),
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'Estado: ${_hydrationAdvice!.status.value}',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                                ),
                               ),
                               const SizedBox(height: 10),
-                              Text('Estado: ${_hydrationAdvice!.status.value}'),
-                              const SizedBox(height: 6),
-                              Text(_hydrationAdvice!.message),
-                              const SizedBox(height: 10),
+                              Text(
+                                _hydrationAdvice!.message,
+                                style: TextStyle(color: Colors.white.withValues(alpha: 0.95)),
+                              ),
+                              const SizedBox(height: 12),
                               Text(
                                 'Tomá ahora: ${_hydrationAdvice!.recommendedMlNow.round()} ml · cada ${_hydrationAdvice!.recommendedIntervalMinutes} min',
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
                               ),
                               if (_hydrationAdvice!.unsafeToCatchUp) ...[
                                 const SizedBox(height: 10),
                                 Text(
                                   _hydrationAdvice!.warning ?? '',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.error,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: const Color(0xFFFF8A80),
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ],
                             ],
@@ -408,19 +436,39 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 16),
                     ],
-                    Card(
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(28),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF56CCF2),
+                            Color(0xFF2F80ED),
+                          ],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF2F80ED).withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
                       child: Padding(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(24),
                         child: Column(
                           children: [
-                            const Text(
+                            Text(
                               'Ayer',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
+                                color: Colors.white.withValues(alpha: 0.95),
                               ),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 12),
                             AnimatedSwitcher(
                               duration: const Duration(milliseconds: 450),
                               transitionBuilder: (child, animation) =>
@@ -432,8 +480,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 key: ValueKey(_glassesYesterday),
                                 '$_glassesYesterday vasos',
                                 style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
@@ -442,15 +491,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 18,
-                        ),
-                        child: WeeklyChart(data: _weeklyData),
-                      ),
-                    ),
+                    WeeklyChart(data: _weeklyData),
                   ],
                 ),
               ),

@@ -52,7 +52,8 @@ class _SetupScreenState extends State<SetupScreen> {
 
   Future<void> _redirectIfUserAlreadyConfigured() async {
     final userData = await _storageService.getUserData();
-    if (widget.skipAutoRedirect || userData == null || !mounted) {
+    final dailyGoal = await _storageService.getDailyGoal();
+    if (widget.skipAutoRedirect || userData == null || dailyGoal == 0 || !mounted) {
       return;
     }
 

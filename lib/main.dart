@@ -10,14 +10,17 @@ void main() async {
   await NotificationService.instance.initialize();
   final storageService = StorageService();
   final userData = await storageService.getUserData();
+  final dailyGoal = await storageService.getDailyGoal();
 
-  if (userData != null) {
+  final needsSetup = userData == null || dailyGoal == 0;
+
+  if (!needsSetup) {
     await NotificationService.instance.scheduleHydrationReminder(
-      minutes: userData.reminderMinutes,
+      minutes: userData!.reminderMinutes,
     );
   }
 
-  runApp(TomateloApp(showSetupScreen: userData == null));
+  runApp(TomateloApp(showSetupScreen: needsSetup));
 }
 
 class TomateloApp extends StatelessWidget {

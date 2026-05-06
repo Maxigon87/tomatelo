@@ -17,7 +17,7 @@ class InicioScreen extends StatelessWidget {
               children: [
                 const Spacer(flex: 3),
                 const Image(
-                  image: AssetImage('assets/images/icono.png'),
+                  image: AssetImage('assets/images/logo.png'),
                   height: 180,
                 ),
                 const SizedBox(height: 24),

@@ -69,13 +69,15 @@ class WeeklyChart extends StatelessWidget {
                       getTitlesWidget: (value, meta) {
                         const labels = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
                         final i = value.toInt();
-                        if (i < 0 || i >= labels.length) {
+                        if (i < 0 || i >= 7) {
                           return const SizedBox.shrink();
                         }
+                        final date = DateTime.now().subtract(Duration(days: 7 - i));
+                        final label = labels[date.weekday - 1];
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
-                            labels[i],
+                            label,
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.8),
                               fontWeight: FontWeight.w600,

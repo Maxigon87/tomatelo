@@ -19,7 +19,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _storageService = StorageService();
   final _hydrationEngine = const HydrationEngine();
   final _notificationService = NotificationService.instance;
@@ -31,8 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _goalCelebrated = false;
   bool _tooMuchWaterWarned = false;
   HydrationAdvice? _hydrationAdvice;
-  late final DateTime _dayStartTime;
-  late final DateTime _dayEndTime;
+  late DateTime _dayStartTime;
+  late DateTime _dayEndTime;
   DateTime _now = DateTime.now();
   late final Duration _hydrationRefresh;
   Widget? _friendlyMessage;
@@ -42,12 +42,23 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    final today = DateTime.now();
-    _dayStartTime = DateTime(today.year, today.month, today.day, 8);
-    _dayEndTime = DateTime(today.year, today.month, today.day, 22);
+    WidgetsBinding.instance.addObserver(this);
     _hydrationRefresh = const Duration(minutes: 1);
     _initializeScreen();
     _startAdvisorRefresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _initializeScreen();
+    }
   }
 
   void _startAdvisorRefresh() {
@@ -86,6 +97,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initializeScreen() async {
+    final today = DateTime.now();
+    _dayStartTime = DateTime(today.year, today.month, today.day, 8);
+    _dayEndTime = DateTime(today.year, today.month, today.day, 22);
     await _resetDataAtMidnight();
     await _syncFromWidget();
     await _loadData();

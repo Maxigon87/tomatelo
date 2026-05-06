@@ -165,7 +165,9 @@ class _AnimatedBubblesState extends State<AnimatedBubbles> with SingleTickerProv
   }
 
   void _initBubbles(Size size) {
-    if (_initialized && size == _cachedSize) return;
+    if (_initialized) {
+      return;
+    }
     _cachedSize = size;
     _initialized = true;
     _bubbles.clear();

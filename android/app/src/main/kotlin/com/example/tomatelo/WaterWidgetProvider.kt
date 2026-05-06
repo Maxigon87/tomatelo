@@ -10,12 +10,24 @@ import android.widget.RemoteViews
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.content.SharedPreferences
 
 class WaterWidgetProvider : AppWidgetProvider() {
 
     private fun getCurrentDateString(): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         return sdf.format(Date())
+    }
+
+    private fun getSafeInt(prefs: SharedPreferences, key: String, default: Int): Int {
+        return when (val value = prefs.all[key]) {
+            is Int -> value
+            is Long -> value.toInt()
+            is Float -> value.toInt()
+            is Double -> value.toInt()
+            is String -> value.toIntOrNull() ?: default
+            else -> default
+        }
     }
 
     override fun onUpdate(
@@ -30,8 +42,8 @@ class WaterWidgetProvider : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
 
             val lastDate = prefs.getString("lastDate", "")
-            var water = prefs.getInt("water", 0)
-            val goal = prefs.getInt("goal", 8)
+            var water = getSafeInt(prefs, "water", 0)
+            val goal = getSafeInt(prefs, "goal", 8)
 
             // Reset visual si es un nuevo día
             if (lastDate != currentDate) {
@@ -77,7 +89,7 @@ class WaterWidgetProvider : AppWidgetProvider() {
             val prefs = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
             val lastDate = prefs.getString("lastDate", "")
 
-            val current = prefs.getInt("water", 0)
+            val current = getSafeInt(prefs, "water", 0)
 
             val updated = if (lastDate != currentDate) {
                 1 // Primer vaso del nuevo día
@@ -86,7 +98,7 @@ class WaterWidgetProvider : AppWidgetProvider() {
             }
 
             prefs.edit()
-                .putInt("water", updated)
+                .putLong("water", updated.toLong())
                 .putString("lastDate", currentDate)
                 .apply()
 

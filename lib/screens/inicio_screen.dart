@@ -98,7 +98,7 @@ class _InicioScreenState extends State<InicioScreen>
                   const SizedBox(height: 24),
                   const Spacer(flex: 2),
                   SizedBox(
-                    width: double.infinity,
+                    width: 260,
                     height: 56,
                     child: ElevatedButton(
                       onPressed: () {
@@ -146,7 +146,7 @@ class _InicioScreenState extends State<InicioScreen>
 class _OutlinedAppTitle extends StatelessWidget {
   const _OutlinedAppTitle();
 
-  static const String _title = 'Tómatelo';
+  static const String _title = 'Tomatelo';
 
   @override
   Widget build(BuildContext context) {

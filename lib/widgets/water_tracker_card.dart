@@ -27,10 +27,10 @@ class _WaterTrackerCardState extends State<WaterTrackerCard> {
 
   // Dynamic motivational text based on progress
   String get _motivationalText {
-    if (_progress == 0.0) return "Let's get started! 💧";
-    if (_progress < 0.5) return "Keep going! 💧";
-    if (_progress < 1.0) return "Almost there! 🌊";
-    return "Goal reached! 🎉";
+    if (_progress == 0.0) return "¡Empecemos! 💧";
+    if (_progress < 0.5) return "¡Sigue así! 💧";
+    if (_progress < 1.0) return "¡Ya casi! 🌊";
+    return "¡Meta cumplida! 🎉";
   }
 
   @override

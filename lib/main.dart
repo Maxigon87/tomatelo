@@ -5,8 +5,11 @@ import 'package:tomatelo/theme/app_theme.dart';
 import 'package:tomatelo/screens/home_screen.dart';
 import 'package:tomatelo/screens/inicio_screen.dart';
 
+import 'package:home_widget/home_widget.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await HomeWidget.setAppGroupId('HomeWidgetPreferences');
   await NotificationService.instance.initialize();
   final storageService = StorageService();
   final userData = await storageService.getUserData();

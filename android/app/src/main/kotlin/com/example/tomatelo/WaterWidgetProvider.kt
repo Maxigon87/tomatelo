@@ -42,12 +42,27 @@ class WaterWidgetProvider : AppWidgetProvider() {
         for (appWidgetId in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
 
+            val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            
             val lastDate = prefs.getString("lastDate", "")
             var water = getSafeInt(prefs, "water", 0)
-            val goal = getSafeInt(prefs, "goal", 8)
+            var goal = getSafeInt(prefs, "goal", 0)
+            
+            val flutterGoal = getSafeInt(flutterPrefs, "flutter.dailyGoal", 0)
+            if (goal <= 0 && flutterGoal > 0) {
+                goal = flutterGoal
+            }
+            if (goal <= 0) {
+                goal = 8
+            }
+
+            val flutterWater = getSafeInt(flutterPrefs, "flutter.glassesToday", 0)
+            if (flutterWater > water) {
+                water = flutterWater
+            }
 
             // Reset visual si es un nuevo día
-            if (lastDate != currentDate) {
+            if (!lastDate.isNullOrEmpty() && lastDate != currentDate) {
                 water = 0
             }
 
@@ -56,10 +71,10 @@ class WaterWidgetProvider : AppWidgetProvider() {
             } else 0
 
             val motivationalText = when {
-                progressPercentage == 0 -> "Let's start! \uD83D\uDCA7" // 💧
-                progressPercentage < 50 -> "Keep going! \uD83D\uDCA7" // 💧
-                progressPercentage < 100 -> "Almost there! \uD83C\uDF0A" // 🌊
-                else -> "Goal reached! \uD83C\uDF89" // 🎉
+                progressPercentage == 0 -> "¡Empecemos! \uD83D\uDCA7" // 💧
+                progressPercentage < 50 -> "¡Sigue así! \uD83D\uDCA7" // 💧
+                progressPercentage < 100 -> "¡Ya casi! \uD83C\uDF0A" // 🌊
+                else -> "¡Meta cumplida! \uD83C\uDF89" // 🎉
             }
 
             views.setTextViewText(R.id.txt_progress, "$water / $goal")
@@ -78,6 +93,7 @@ class WaterWidgetProvider : AppWidgetProvider() {
             )
 
             views.setOnClickPendingIntent(R.id.btn_add, pendingIntent)
+            views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
     }
@@ -92,7 +108,7 @@ class WaterWidgetProvider : AppWidgetProvider() {
 
             val current = getSafeInt(prefs, "water", 0)
 
-            val updated = if (lastDate != currentDate) {
+            val updated = if (!lastDate.isNullOrEmpty() && lastDate != currentDate) {
                 1 // Primer vaso del nuevo día
             } else {
                 current + 1 // Siguiente vaso del mismo día

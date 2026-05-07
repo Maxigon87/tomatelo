@@ -26,10 +26,10 @@ class _TomateloHomeWidgetCardState extends State<TomateloHomeWidgetCard> {
   }
 
   String get _encouragement {
-    if (_progress >= 1) return 'Goal complete 🎉';
-    if (_progress >= 0.75) return 'Almost there 💧';
-    if (_progress >= 0.4) return 'Keep going 💧';
-    return 'Great start 🚰';
+    if (_progress >= 1) return 'Objetivo completado 🎉';
+    if (_progress >= 0.75) return 'Casi lo logras 💧';
+    if (_progress >= 0.4) return 'Sigue así 💧';
+    return '¡Empecemos! 🚰';
   }
 
   Future<void> _onAddTap() async {

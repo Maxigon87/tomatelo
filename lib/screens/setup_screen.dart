@@ -123,36 +123,75 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Configuración de Hidratación')),
+      appBar: AppBar(
+        title: const Text(
+          'Configuración de Hidratación',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
+        foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppTheme.primaryBlue,
+                AppTheme.secondaryAqua,
+              ],
+            ),
+          ),
+        ),
+      ),
       body: WaterBackground(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.water_drop_rounded,
-                        size: 48,
-                        color: AppTheme.primaryBlue,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Ajustemos tu hidratación diaria',
-                        style: Theme.of(context).textTheme.titleLarge,
-                        textAlign: TextAlign.center,
-                      ),
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.primaryBlue,
+                      AppTheme.secondaryAqua,
+                    ],
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.water_drop_rounded,
+                          size: 48,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Ajustemos tu hidratación diaria',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                          textAlign: TextAlign.center,
+                        ),
                       const SizedBox(height: 20),
                       TextFormField(
                         controller: _weightController,
-                        decoration: const InputDecoration(
-                          labelText: 'Peso (kg)',
-                          prefixIcon: Icon(Icons.monitor_weight_outlined),
+                        decoration: InputDecoration(
+                          hintText: 'Peso (kg)',
+                          prefixIcon: const Icon(Icons.monitor_weight_outlined),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                         keyboardType: TextInputType.number,
                         validator: (value) {
@@ -171,9 +210,15 @@ class _SetupScreenState extends State<SetupScreen> {
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _heightController,
-                        decoration: const InputDecoration(
-                          labelText: 'Altura (cm)',
-                          prefixIcon: Icon(Icons.height_rounded),
+                        decoration: InputDecoration(
+                          hintText: 'Altura (cm)',
+                          prefixIcon: const Icon(Icons.height_rounded),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                         keyboardType: TextInputType.number,
                         validator: (value) {
@@ -192,10 +237,17 @@ class _SetupScreenState extends State<SetupScreen> {
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _reminderController,
-                        decoration: const InputDecoration(
-                          labelText: 'Recordatorio cada (min)',
+                        decoration: InputDecoration(
+                          hintText: 'Recordatorio cada (min)',
                           helperText: 'Mínimo 15 minutos para evitar spam.',
-                          prefixIcon: Icon(Icons.notifications_active_outlined),
+                          helperStyle: const TextStyle(color: Colors.white70),
+                          prefixIcon: const Icon(Icons.notifications_active_outlined),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                         keyboardType: TextInputType.number,
                         validator: (value) {
@@ -213,16 +265,11 @@ class _SetupScreenState extends State<SetupScreen> {
                       DecoratedBox(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(22),
-                          gradient: const LinearGradient(
-                            colors: [
-                              AppTheme.primaryBlue,
-                              AppTheme.secondaryAqua,
-                            ],
-                          ),
+                          color: Colors.white,
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.secondaryAqua.withValues(
-                                alpha: 0.45,
+                              color: Colors.black.withValues(
+                                alpha: 0.1,
                               ),
                               blurRadius: 20,
                               offset: const Offset(0, 8),
@@ -238,7 +285,7 @@ class _SetupScreenState extends State<SetupScreen> {
                           child: const Text(
                             'Iniciar hidratación',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppTheme.primaryBlue,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -252,6 +299,7 @@ class _SetupScreenState extends State<SetupScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }

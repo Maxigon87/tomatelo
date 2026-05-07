@@ -11,6 +11,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import android.content.SharedPreferences
+import es.antonborri.home_widget.HomeWidgetPlugin
 
 class WaterWidgetProvider : AppWidgetProvider() {
 
@@ -36,7 +37,7 @@ class WaterWidgetProvider : AppWidgetProvider() {
         appWidgetIds: IntArray,
     ) {
         val currentDate = getCurrentDateString()
-        val prefs = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
+        val prefs = HomeWidgetPlugin.getData(context)
 
         for (appWidgetId in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
@@ -86,7 +87,7 @@ class WaterWidgetProvider : AppWidgetProvider() {
 
         if (intent.action == ACTION_ADD_WATER) {
             val currentDate = getCurrentDateString()
-            val prefs = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
+            val prefs = HomeWidgetPlugin.getData(context)
             val lastDate = prefs.getString("lastDate", "")
 
             val current = getSafeInt(prefs, "water", 0)

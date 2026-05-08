@@ -62,12 +62,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _startAdvisorRefresh() {
-    Future<void>.delayed(_hydrationRefresh, () {
+    Future<void>.delayed(_hydrationRefresh, () async {
       if (!mounted) return;
-      setState(() {
-        _now = DateTime.now();
-        _refreshHydrationAdvice();
-      });
+      final now = DateTime.now();
+      if (now.day != _now.day || now.month != _now.month || now.year != _now.year) {
+        await _initializeScreen();
+      } else {
+        setState(() {
+          _now = now;
+          _refreshHydrationAdvice();
+        });
+      }
       _startAdvisorRefresh();
     });
   }
@@ -204,7 +209,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
   }
 
-  void _incrementGlasses() {
+  Future<void> _incrementGlasses() async {
+    final now = DateTime.now();
+    if (now.day != _now.day || now.month != _now.month || now.year != _now.year) {
+      await _initializeScreen();
+    }
+
     setState(() {
       _glassesToday++;
       _dropTrigger = !_dropTrigger;
@@ -316,7 +326,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     WaterTrackerCard(
                       currentGlasses: _glassesToday,
                       goalGlasses: _dailyGoal,
-                      onAddWater: _incrementGlasses,
+                      onAddWater: () {
+                        _incrementGlasses();
+                      },
                     ),
                     const SizedBox(height: 12),
                     if (_hydrationAdvice != null)

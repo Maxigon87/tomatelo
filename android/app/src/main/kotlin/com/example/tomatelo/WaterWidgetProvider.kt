@@ -56,14 +56,14 @@ class WaterWidgetProvider : AppWidgetProvider() {
                 goal = 8
             }
 
-            val flutterWater = getSafeInt(flutterPrefs, "flutter.glassesToday", 0)
-            if (flutterWater > water) {
-                water = flutterWater
-            }
-
             // Reset visual si es un nuevo día
             if (!lastDate.isNullOrEmpty() && lastDate != currentDate) {
                 water = 0
+            } else {
+                val flutterWater = getSafeInt(flutterPrefs, "flutter.glassesToday", 0)
+                if (flutterWater > water) {
+                    water = flutterWater
+                }
             }
 
             val progressPercentage = if (goal > 0) {

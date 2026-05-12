@@ -4,12 +4,14 @@ class WaterTrackerCard extends StatefulWidget {
   final int currentGlasses;
   final int goalGlasses;
   final VoidCallback onAddWater;
+  final VoidCallback onRemoveWater;
 
   const WaterTrackerCard({
     super.key,
     required this.currentGlasses,
     required this.goalGlasses,
     required this.onAddWater,
+    required this.onRemoveWater,
   });
 
   @override
@@ -17,7 +19,8 @@ class WaterTrackerCard extends StatefulWidget {
 }
 
 class _WaterTrackerCardState extends State<WaterTrackerCard> {
-  bool _isPressed = false;
+  bool _isAddPressed = false;
+  bool _isRemovePressed = false;
 
   // Calculates completion percentage safely (0.0 to 1.0)
   double get _progress {
@@ -108,45 +111,31 @@ class _WaterTrackerCardState extends State<WaterTrackerCard> {
                           ],
                         ),
                       ),
-                      // Animated Action Button (+1 Drop)
-                      GestureDetector(
-                        onTapDown: (_) => setState(() => _isPressed = true),
-                        onTapUp: (_) {
-                          setState(() => _isPressed = false);
-                          widget.onAddWater();
-                        },
-                        onTapCancel: () => setState(() => _isPressed = false),
-                        child: AnimatedScale(
-                          scale: _isPressed ? 0.92 : 1.0,
-                          duration: const Duration(milliseconds: 150),
-                          curve: Curves.easeOutBack,
-                          child: Material(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            elevation: _isPressed ? 2 : 8,
-                            shadowColor: Colors.black38,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(20),
-                              onTap: widget.onAddWater,
-                              splashColor: const Color(0xFF56CCF2).withValues(alpha: 0.3),
-                              highlightColor: Colors.transparent,
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 18,
-                                ),
-                                child: Text(
-                                  '+1 💧',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF2F80ED),
-                                  ),
-                                ),
-                              ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _WaterActionButton(
+                            label: '-1',
+                            icon: Icons.remove_rounded,
+                            isPressed: _isRemovePressed,
+                            isCompact: true,
+                            onPressed: widget.currentGlasses > 0
+                                ? widget.onRemoveWater
+                                : null,
+                            onPressStateChanged: (isPressed) => setState(
+                              () => _isRemovePressed = isPressed,
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 10),
+                          _WaterActionButton(
+                            label: '+1 💧',
+                            isPressed: _isAddPressed,
+                            onPressed: widget.onAddWater,
+                            onPressStateChanged: (isPressed) => setState(
+                              () => _isAddPressed = isPressed,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -188,6 +177,88 @@ class _WaterTrackerCardState extends State<WaterTrackerCard> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WaterActionButton extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final bool isPressed;
+  final bool isCompact;
+  final VoidCallback? onPressed;
+  final ValueChanged<bool> onPressStateChanged;
+
+  const _WaterActionButton({
+    required this.label,
+    required this.isPressed,
+    required this.onPressed,
+    required this.onPressStateChanged,
+    this.icon,
+    this.isCompact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isEnabled = onPressed != null;
+
+    return AnimatedScale(
+      scale: isPressed ? 0.92 : 1.0,
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOutBack,
+      child: Material(
+        color: Colors.white.withValues(alpha: isEnabled ? 1 : 0.55),
+        borderRadius: BorderRadius.circular(isCompact ? 16 : 20),
+        elevation: isPressed ? 2 : 8,
+        shadowColor: Colors.black38,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(isCompact ? 16 : 20),
+          onTapDown: isEnabled ? (_) => onPressStateChanged(true) : null,
+          onTapUp: isEnabled ? (_) => onPressStateChanged(false) : null,
+          onTapCancel: isEnabled ? () => onPressStateChanged(false) : null,
+          onTap: onPressed,
+          splashColor: const Color(0xFF56CCF2).withValues(alpha: 0.3),
+          highlightColor: Colors.transparent,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isCompact ? 12 : 20,
+              vertical: isCompact ? 14 : 18,
+            ),
+            child: icon == null
+                ? Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2F80ED),
+                    ),
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        icon,
+                        size: 18,
+                        color: const Color(0xFF2F80ED).withValues(
+                          alpha: isEnabled ? 1 : 0.45,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF2F80ED).withValues(
+                            alpha: isEnabled ? 1 : 0.45,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
         ),
       ),
     );

@@ -241,9 +241,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _decrementGlasses() async {
+    if (_glassesToday <= 0) {
+      return;
+    }
+
+    setState(() {
+      _glassesToday--;
+      _now = DateTime.now();
+      if (_glassesToday < _dailyGoal) {
+        _goalCelebrated = false;
+      }
+      if (_glassesToday < _upperHydrationLimit) {
+        _tooMuchWaterWarned = false;
+      }
+      if (_glassesToday == 0) {
+        _lastDrinkAt = null;
+      }
+      _refreshHydrationAdvice();
+    });
+
+    await _storageService.saveGlassesToday(_glassesToday);
+    if (_lastDrinkAt == null) {
+      await _storageService.clearLastDrinkAt();
+    }
+    await _updateWidget(_glassesToday, _dailyGoal);
+  }
+
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -317,6 +343,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       currentGlasses: _glassesToday,
                       goalGlasses: _dailyGoal,
                       onAddWater: _incrementGlasses,
+                      onRemoveWater: _decrementGlasses,
                     ),
                     const SizedBox(height: 12),
                     if (_hydrationAdvice != null)

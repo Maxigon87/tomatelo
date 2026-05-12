@@ -93,7 +93,9 @@ class WaterWidgetProvider : AppWidgetProvider() {
             )
 
             views.setOnClickPendingIntent(R.id.btn_add, pendingIntent)
-            views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
+            // Only the +1 button should add a glass; clear the root click action in case
+            // an older widget instance still has a pending intent attached to the whole card.
+            views.setOnClickPendingIntent(R.id.widget_root, null)
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
     }

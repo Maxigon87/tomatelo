@@ -19,7 +19,8 @@ class NotificationService {
 
   static final NotificationService instance = NotificationService._();
 
-  static const String _channelKey = 'hydration_reminders';
+  static const String _channelKey = 'hydration_reminders_water';
+  static const String _waterDropSound = 'resource://raw/res_water_drop';
   static const int _reminderId = 1001;
   static const int _minReminderMinutes = 15;
   static const int _maxReminderMinutes = 120;
@@ -33,6 +34,7 @@ class NotificationService {
         defaultColor: const Color(0xFF4FA3FF),
         importance: NotificationImportance.High,
         playSound: true,
+        soundSource: _waterDropSound,
       ),
     ]);
 

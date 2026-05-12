@@ -5,6 +5,12 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val copyWaterNotificationSound by tasks.registering(Copy::class) {
+    from("../../assets/sounds/water_drop.wav")
+    rename { _: String -> "res_water_drop.wav" }
+    into(layout.buildDirectory.dir("generated/res/waterNotification/raw"))
+}
+
 android {
     namespace = "com.example.tomatelo"
     compileSdk = flutter.compileSdkVersion
@@ -30,6 +36,12 @@ android {
         versionName = flutter.versionName
     }
 
+    sourceSets {
+        getByName("main") {
+            res.srcDir(layout.buildDirectory.dir("generated/res/waterNotification"))
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
@@ -41,4 +53,8 @@ android {
 
 flutter {
     source = "../.."
+}
+
+tasks.named("preBuild") {
+    dependsOn(copyWaterNotificationSound)
 }

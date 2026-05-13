@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:tomatelo/models/nutrition_habit.dart';
@@ -128,6 +130,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _syncFromWidget() async {
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
+      return;
+    }
     final lastDate = await HomeWidget.getWidgetData<String>('lastDate', defaultValue: '');
     final currentDate = DateTime.now().toIso8601String().split('T')[0];
 
@@ -143,6 +148,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _updateWidget(int water, int dailyGoal) async {
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
+      return;
+    }
     final currentDate = DateTime.now().toIso8601String().split('T')[0];
     await HomeWidget.saveWidgetData('water', water);
     await HomeWidget.saveWidgetData('goal', dailyGoal);

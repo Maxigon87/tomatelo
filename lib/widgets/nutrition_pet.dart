@@ -2,9 +2,17 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-class NutritionPet extends StatefulWidget {
-  const NutritionPet({super.key, required this.progress, this.size = 112});
+enum NutritionPetMood { happy, normal, tired }
 
+class NutritionPet extends StatefulWidget {
+  const NutritionPet({
+    super.key,
+    required this.mood,
+    required this.progress,
+    this.size = 112,
+  });
+
+  final NutritionPetMood mood;
   final double progress;
   final double size;
 
@@ -76,7 +84,7 @@ class _NutritionPetState extends State<NutritionPet>
                     ),
                     Positioned(
                       top: widget.size * 0.52,
-                      child: _FruitFace(isHappy: widget.progress >= 0.45),
+                      child: _FruitFace(mood: widget.mood),
                     ),
                   ],
                 ),
@@ -126,9 +134,9 @@ class _NutritionPetState extends State<NutritionPet>
 }
 
 class _FruitFace extends StatelessWidget {
-  const _FruitFace({required this.isHappy});
+  const _FruitFace({required this.mood});
 
-  final bool isHappy;
+  final NutritionPetMood mood;
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +152,7 @@ class _FruitFace extends StatelessWidget {
           const SizedBox(height: 8),
           CustomPaint(
             size: const Size(22, 10),
-            painter: _SmilePainter(isHappy: isHappy),
+            painter: _SmilePainter(mood: mood),
           ),
         ],
       ),
@@ -169,9 +177,9 @@ class _Eye extends StatelessWidget {
 }
 
 class _SmilePainter extends CustomPainter {
-  const _SmilePainter({required this.isHappy});
+  const _SmilePainter({required this.mood});
 
-  final bool isHappy;
+  final NutritionPetMood mood;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -180,10 +188,21 @@ class _SmilePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.6
       ..strokeCap = StrokeCap.round;
+
+    if (mood == NutritionPetMood.normal) {
+      canvas.drawLine(
+        Offset(size.width * 0.2, size.height * 0.5),
+        Offset(size.width * 0.8, size.height * 0.5),
+        paint,
+      );
+      return;
+    }
+
+    final isHappy = mood == NutritionPetMood.happy;
     final rect = Rect.fromLTWH(0, isHappy ? -size.height * 0.5 : 0, size.width, size.height);
     canvas.drawArc(rect, isHappy ? 0.12 : math.pi + 0.12, math.pi - 0.24, false, paint);
   }
 
   @override
-  bool shouldRepaint(covariant _SmilePainter oldDelegate) => oldDelegate.isHappy != isHappy;
+  bool shouldRepaint(covariant _SmilePainter oldDelegate) => oldDelegate.mood != mood;
 }

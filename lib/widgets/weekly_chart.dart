@@ -3,30 +3,40 @@ import 'package:flutter/material.dart';
 
 class WeeklyChart extends StatelessWidget {
   final List<int> data;
+  final List<Color>? gradientColors;
+  final Color? shadowColor;
 
-  const WeeklyChart({super.key, required this.data});
+  const WeeklyChart({
+    super.key,
+    required this.data,
+    this.gradientColors,
+    this.shadowColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     // Find max value to give standard height to the background rod
     final double maxY = data.isEmpty ? 8 : (data.reduce((curr, next) => curr > next ? curr : next).toDouble() + 2).clamp(8.0, 100.0);
 
+    final colors = gradientColors ?? const [
+      Color(0xFF56CCF2), // Light top
+      Color(0xFF2F80ED), // Dark bottom
+    ];
+    final sColor = shadowColor ?? const Color(0xFF2F80ED);
+
     return Container(
       height: 160,
       padding: const EdgeInsets.only(top: 20, bottom: 10, left: 10, right: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF56CCF2), // Light top
-            Color(0xFF2F80ED), // Dark bottom
-          ],
+          colors: colors,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2F80ED).withValues(alpha: 0.3),
+            color: sColor.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),

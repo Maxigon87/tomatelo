@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
@@ -515,7 +516,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               child: _YesterdayWater(glassesYesterday: _glassesYesterday),
             ),
             const SizedBox(height: 16),
-            WeeklyChart(data: _weeklyData),
+            WeeklyChart(
+              data: _weeklyData,
+              gradientColors: const [Color(0xFF56CCF2), Color(0xFF2F80ED)],
+              shadowColor: const Color(0xFF2F80ED),
+            ),
           ],
         ),
       ),
@@ -535,7 +540,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 6),
-            NutritionPet(progress: _nutritionProgress, size: 112),
+            NutritionPet(
+              mood: _nutritionPetMood,
+              progress: _nutritionProgress,
+              size: 112,
+            ),
             const SizedBox(height: 24),
             NutritionTrackerCard(
               today: _nutritionToday,
@@ -558,7 +567,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               child: _buildNutritionYesterday(context),
             ),
             const SizedBox(height: 16),
-            WeeklyChart(data: _nutritionWeeklyData),
+            WeeklyChart(
+              data: _nutritionWeeklyData,
+              gradientColors: const [Color(0xFF8BC34A), Color(0xFF7CB342)],
+              shadowColor: const Color(0xFF7CB342),
+            ),
           ],
         ),
       ),
@@ -842,6 +855,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final isOnTrack = status == null || status == HydrationStatus.onTrack;
     return isOnTrack ? HydrationPetMood.happy : HydrationPetMood.tired;
   }
+
+  NutritionPetMood get _nutritionPetMood {
+    final hour = DateTime.now().hour;
+    final progress = _nutritionProgress;
+
+    // Antes de las 12 (mañana): Feliz si ya empezó con algo
+    if (hour < 12) {
+      return progress > 0 ? NutritionPetMood.happy : NutritionPetMood.normal;
+    }
+    // Entre 12 y 20 (tarde): Feliz si va a mitad de camino
+    if (hour < 20) {
+      return progress >= 0.4 ? NutritionPetMood.happy : NutritionPetMood.normal;
+    }
+    // Después de las 20 (noche): Triste si no cumplió la meta
+    return progress >= 0.8 ? NutritionPetMood.happy : NutritionPetMood.tired;
+  }
 }
 
 class _SwipeBackground extends StatelessWidget {
@@ -880,13 +909,13 @@ class _SwipeBackground extends StatelessWidget {
         children: [
           Positioned.fill(
             child: Opacity(
-              opacity: 1 - (pagePosition * 0.35),
+              opacity: (1 - pagePosition).clamp(0, 1),
               child: const AnimatedBubbles(),
             ),
           ),
           Positioned.fill(
             child: Opacity(
-              opacity: pagePosition,
+              opacity: pagePosition.clamp(0, 1),
               child: const _NutritionParticles(),
             ),
           ),
@@ -942,27 +971,33 @@ class _NutritionParticlesPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
-    final colors = [
-      const Color(0xFF8BC34A).withValues(alpha: 0.16),
-      const Color(0xFFFFB74D).withValues(alpha: 0.15),
-      const Color(0xFFE57373).withValues(alpha: 0.11),
-    ];
+    final fruits = ['🍎', '🍌', '🍓', '🍊', '🥝', '🍇', '🍐'];
+    final textStyle = TextStyle(fontSize: 24);
 
-    for (var i = 0; i < 18; i++) {
-      final progress = (tick + i * 0.071) % 1;
-      final x = (size.width * ((i * 37) % 100) / 100) +
-          (i.isEven ? 1 : -1) * 18 * progress;
-      final y = size.height - (size.height + 80) * progress + (i % 3) * 24;
-      paint.color = colors[i % colors.length];
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(x, y),
-          width: 8 + (i % 4) * 3,
-          height: 14 + (i % 3) * 4,
+    for (var i = 0; i < 15; i++) {
+      final progress = (tick + i * 0.13) % 1;
+      // Falling from top to bottom
+      final x = (size.width * ((i * 43) % 100) / 100) +
+          sin(progress * pi * 2 + i) * 20;
+      final y = -40 + (size.height + 80) * progress;
+      
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: fruits[i % fruits.length],
+          style: textStyle.copyWith(
+            color: Colors.white.withValues(alpha: 0.15 + (1 - progress) * 0.1),
+          ),
         ),
-        paint,
+        textDirection: TextDirection.ltr,
       );
+      
+      textPainter.layout();
+      
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(progress * pi * 0.5); // Slight rotation while falling
+      textPainter.paint(canvas, Offset(-textPainter.width / 2, -textPainter.height / 2));
+      canvas.restore();
     }
   }
 

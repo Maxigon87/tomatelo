@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tomatelo/models/user_data.dart';
@@ -13,6 +14,74 @@ class StorageService {
   static const String _lastDrinkAtKey = 'lastDrinkAt';
   static const String _lastResetKey = 'lastReset';
   static const String _weeklyDataKey = 'weeklyData';
+  static const String _nutritionTodayKey = 'nutritionToday';
+  static const String _nutritionGoalsKey = 'nutritionGoals';
+  static const String _nutritionYesterdayKey = 'nutritionYesterday';
+  static const String _nutritionWeeklyKey = 'nutritionWeekly';
+
+
+  Future<void> saveNutritionToday(Map<String, int> habits) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_nutritionTodayKey, jsonEncode(habits));
+  }
+
+  Future<Map<String, int>> getNutritionToday() async {
+    final prefs = await SharedPreferences.getInstance();
+    return _decodeNutritionMap(prefs.getString(_nutritionTodayKey));
+  }
+
+  Future<void> saveNutritionGoals(Map<String, int> goals) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_nutritionGoalsKey, jsonEncode(goals));
+  }
+
+  Future<Map<String, int>> getNutritionGoals() async {
+    final prefs = await SharedPreferences.getInstance();
+    return _decodeNutritionMap(prefs.getString(_nutritionGoalsKey));
+  }
+
+  Future<void> saveNutritionYesterday(Map<String, int> habits) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_nutritionYesterdayKey, jsonEncode(habits));
+  }
+
+  Future<Map<String, int>> getNutritionYesterday() async {
+    final prefs = await SharedPreferences.getInstance();
+    return _decodeNutritionMap(prefs.getString(_nutritionYesterdayKey));
+  }
+
+  Future<void> saveNutritionWeeklyData(List<int> weeklyData) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _nutritionWeeklyKey,
+      weeklyData.map((e) => e.toString()).toList(),
+    );
+  }
+
+  Future<List<int>> getNutritionWeeklyData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final weeklyData = prefs.getStringList(_nutritionWeeklyKey);
+    if (weeklyData != null) {
+      return weeklyData.map((e) => int.tryParse(e) ?? 0).toList();
+    }
+    return List.filled(7, 0);
+  }
+
+  Map<String, int> _decodeNutritionMap(String? value) {
+    if (value == null || value.isEmpty) {
+      return {};
+    }
+
+    final decoded = jsonDecode(value);
+    if (decoded is! Map<String, dynamic>) {
+      return {};
+    }
+
+    return decoded.map((key, value) {
+      final parsed = value is int ? value : int.tryParse(value.toString()) ?? 0;
+      return MapEntry(key, parsed);
+    });
+  }
 
   Future<void> saveWeeklyData(List<int> weeklyData) async {
     final prefs = await SharedPreferences.getInstance();

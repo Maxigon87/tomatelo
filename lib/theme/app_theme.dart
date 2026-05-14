@@ -114,7 +114,7 @@ class WaterBackground extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          const Positioned.fill(child: AnimatedBubbles()),
+          const Positioned.fill(child: AnimatedBubbles(isActive: true)),
           child,
         ],
       ),
@@ -139,7 +139,8 @@ class Bubble {
 }
 
 class AnimatedBubbles extends StatefulWidget {
-  const AnimatedBubbles({super.key});
+  final bool isActive;
+  const AnimatedBubbles({super.key, this.isActive = true});
 
   @override
   State<AnimatedBubbles> createState() => _AnimatedBubblesState();
@@ -158,7 +159,21 @@ class _AnimatedBubblesState extends State<AnimatedBubbles> with SingleTickerProv
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
-    )..repeat();
+    );
+    
+    if (widget.isActive) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(AnimatedBubbles oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.isActive && _controller.isAnimating) {
+      _controller.stop();
+    }
   }
 
   void _initBubbles(Size size) {
@@ -169,19 +184,19 @@ class _AnimatedBubblesState extends State<AnimatedBubbles> with SingleTickerProv
     _initialized = true;
     _bubbles.clear();
     
-    // Create groups of bubbles
-    for (int i = 0; i < 7; i++) {
+    // Create fewer groups for better performance
+    for (int i = 0; i < 4; i++) {
       double groupX = _random.nextDouble() * size.width;
       double groupY = _random.nextDouble() * size.height;
-      int bubblesInGroup = _random.nextInt(4) + 3; // 3 to 6 bubbles per group
+      int bubblesInGroup = _random.nextInt(3) + 2; // 2 to 4 bubbles per group
       
       for (int j = 0; j < bubblesInGroup; j++) {
         _bubbles.add(Bubble(
           x: groupX + (_random.nextDouble() - 0.5) * 60,
           y: groupY + (_random.nextDouble() - 0.5) * 60,
-          radius: _random.nextDouble() * 10 + 4,
-          speed: _random.nextDouble() * 0.8 + 0.4,
-          drift: (_random.nextDouble() - 0.5) * 0.3,
+          radius: _random.nextDouble() * 12 + 4,
+          speed: _random.nextDouble() * 0.7 + 0.3,
+          drift: (_random.nextDouble() - 0.5) * 0.2,
         ));
       }
     }

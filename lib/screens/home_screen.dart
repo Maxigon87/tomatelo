@@ -432,7 +432,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 6),
-            HydrationPet(mood: _petMood, size: 112),
+            RepaintBoundary(child: HydrationPet(mood: _petMood, size: 112)),
             const SizedBox(height: 24),
             WaterTrackerCard(
               currentGlasses: _glassesToday,
@@ -521,10 +521,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               child: _YesterdayWater(glassesYesterday: _glassesYesterday),
             ),
             const SizedBox(height: 16),
-            WeeklyChart(
-              data: _weeklyData,
-              gradientColors: const [Color(0xFF56CCF2), Color(0xFF2F80ED)],
-              shadowColor: const Color(0xFF2F80ED),
+            RepaintBoundary(
+              child: WeeklyChart(
+                data: _weeklyData,
+                gradientColors: const [Color(0xFF56CCF2), Color(0xFF2F80ED)],
+                shadowColor: const Color(0xFF2F80ED),
+              ),
             ),
           ],
         ),
@@ -545,10 +547,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 6),
-            NutritionPet(
-              mood: _nutritionPetMood,
-              progress: _nutritionProgress,
-              size: 112,
+            RepaintBoundary(
+              child: NutritionPet(
+                mood: _nutritionPetMood,
+                progress: _nutritionProgress,
+                size: 112,
+              ),
             ),
             const SizedBox(height: 24),
             NutritionTrackerCard(
@@ -572,10 +576,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               child: _buildNutritionYesterday(context),
             ),
             const SizedBox(height: 16),
-            WeeklyChart(
-              data: _nutritionWeeklyData,
-              gradientColors: const [Color(0xFF8BC34A), Color(0xFF7CB342)],
-              shadowColor: const Color(0xFF7CB342),
+            RepaintBoundary(
+              child: WeeklyChart(
+                data: _nutritionWeeklyData,
+                gradientColors: const [Color(0xFF8BC34A), Color(0xFF7CB342)],
+                shadowColor: const Color(0xFF7CB342),
+              ),
             ),
           ],
         ),
@@ -897,14 +903,16 @@ class _SwipeBackground extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: List.generate(
-            waterColors.length,
-            (index) => Color.lerp(
-              waterColors[index],
-              nutritionColors[index],
-              pagePosition,
-            )!,
-          ),
+          colors: pagePosition <= 0 ? waterColors : 
+                  pagePosition >= 1 ? nutritionColors : 
+                  List.generate(
+                    waterColors.length,
+                    (index) => Color.lerp(
+                      waterColors[index],
+                      nutritionColors[index],
+                      pagePosition,
+                    )!,
+                  ),
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
@@ -912,15 +920,19 @@ class _SwipeBackground extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(
-            child: Opacity(
-              opacity: (1 - pagePosition).clamp(0, 1),
-              child: const AnimatedBubbles(),
+            child: RepaintBoundary(
+              child: Opacity(
+                opacity: (1 - pagePosition).clamp(0, 1),
+                child: AnimatedBubbles(isActive: pagePosition < 0.99),
+              ),
             ),
           ),
           Positioned.fill(
-            child: Opacity(
-              opacity: pagePosition.clamp(0, 1),
-              child: const _NutritionParticles(),
+            child: RepaintBoundary(
+              child: Opacity(
+                opacity: pagePosition.clamp(0, 1),
+                child: _NutritionParticles(isActive: pagePosition > 0.01),
+              ),
             ),
           ),
           child,
@@ -931,7 +943,8 @@ class _SwipeBackground extends StatelessWidget {
 }
 
 class _NutritionParticles extends StatefulWidget {
-  const _NutritionParticles();
+  final bool isActive;
+  const _NutritionParticles({required this.isActive});
 
   @override
   State<_NutritionParticles> createState() => _NutritionParticlesState();
@@ -940,14 +953,39 @@ class _NutritionParticles extends StatefulWidget {
 class _NutritionParticlesState extends State<_NutritionParticles>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  final List<TextPainter> _painters = [];
+  final fruits = ['🍎', '🍌', '🍓', '🍊', '🥝', '🍇', '🍐'];
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 9),
-    )..repeat();
+      duration: const Duration(seconds: 10),
+    );
+
+    for (final fruit in fruits) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: fruit,
+          style: const TextStyle(fontSize: 24),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      _painters.add(tp);
+    }
+
+    if (widget.isActive) _controller.repeat();
+  }
+
+  @override
+  void didUpdateWidget(_NutritionParticles oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.isActive && _controller.isAnimating) {
+      _controller.stop();
+    }
   }
 
   @override
@@ -958,10 +996,12 @@ class _NutritionParticlesState extends State<_NutritionParticles>
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.isActive) return const SizedBox.shrink();
+    
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) => CustomPaint(
-        painter: _NutritionParticlesPainter(_controller.value),
+        painter: _NutritionParticlesPainter(_controller.value, _painters),
         size: Size.infinite,
       ),
     );
@@ -969,38 +1009,26 @@ class _NutritionParticlesState extends State<_NutritionParticles>
 }
 
 class _NutritionParticlesPainter extends CustomPainter {
-  const _NutritionParticlesPainter(this.tick);
+  const _NutritionParticlesPainter(this.tick, this.painters);
 
   final double tick;
+  final List<TextPainter> painters;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final fruits = ['🍎', '🍌', '🍓', '🍊', '🥝', '🍇', '🍐'];
-    final textStyle = TextStyle(fontSize: 24);
-
-    for (var i = 0; i < 15; i++) {
-      final progress = (tick + i * 0.13) % 1;
-      // Falling from top to bottom
-      final x = (size.width * ((i * 43) % 100) / 100) +
-          sin(progress * pi * 2 + i) * 20;
+    // Reduced count from 15 to 8 for better performance
+    for (var i = 0; i < 8; i++) {
+      final progress = (tick + i * 0.12) % 1;
+      final x = (size.width * ((i * 47) % 100) / 100) +
+          sin(progress * pi * 2 + i) * 15;
       final y = -40 + (size.height + 80) * progress;
       
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: fruits[i % fruits.length],
-          style: textStyle.copyWith(
-            color: Colors.white.withValues(alpha: 0.15 + (1 - progress) * 0.1),
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      
-      textPainter.layout();
+      final tp = painters[i % painters.length];
       
       canvas.save();
       canvas.translate(x, y);
-      canvas.rotate(progress * pi * 0.5); // Slight rotation while falling
-      textPainter.paint(canvas, Offset(-textPainter.width / 2, -textPainter.height / 2));
+      canvas.rotate(progress * pi * 0.4);
+      tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
       canvas.restore();
     }
   }

@@ -45,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   ReminderSuggestion? _reminderSuggestion;
   DateTime? _lastDrinkAt;
   final PageController _pageController = PageController();
-  double _pagePosition = 0;
+  late final ValueNotifier<double> _pagePosition;
   Map<String, int> _nutritionToday = {};
   Map<String, int> _nutritionGoals = {};
   Map<String, int> _nutritionYesterday = {};
@@ -56,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _hydrationRefresh = const Duration(minutes: 1);
+    _pagePosition = ValueNotifier<double>(0);
     _pageController.addListener(_handlePageScroll);
     _initializeScreen();
     _startAdvisorRefresh();
@@ -67,6 +68,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _pageController
       ..removeListener(_handlePageScroll)
       ..dispose();
+    _pagePosition.dispose();
     super.dispose();
   }
 
@@ -81,9 +83,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!_pageController.hasClients) {
       return;
     }
-    setState(() {
-      _pagePosition = (_pageController.page ?? 0).clamp(0, 1).toDouble();
-    });
+    _pagePosition.value = (_pageController.page ?? 0).clamp(0, 1).toDouble();
   }
 
   void _startAdvisorRefresh() {
@@ -345,10 +345,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             onSelected: (value) {
               if (value == 'info') {
                 _showFriendlyMessage(
-                  title: _pagePosition < 0.5
+                  title: _pagePosition.value < 0.5
                       ? 'Consejo de hidratación'
                       : 'Consejo de nutrición',
-                  message: _pagePosition < 0.5
+                  message: _pagePosition.value < 0.5
                       ? '¡Vas increíble! Bebe agua de a poco durante el día y tu cuerpo te lo va a aplaudir. 👏'
                       : 'Suma hábitos simples y amables: una fruta, una infusión o un snack saludable. Sin culpa, paso a paso. 🍎',
                   icon: Icons.info_outline_rounded,
@@ -388,28 +388,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-      body: _SwipeBackground(
-        pagePosition: _pagePosition,
-        child: Stack(
-          children: [
-            PageView(
-              controller: _pageController,
-              physics: const BouncingScrollPhysics(),
+      body: ValueListenableBuilder<double>(
+        valueListenable: _pagePosition,
+        builder: (context, position, child) {
+          return _SwipeBackground(
+            pagePosition: position,
+            child: Stack(
               children: [
-                _buildWaterPage(context),
-                _buildNutritionPage(context),
+                PageView(
+                  controller: _pageController,
+                  physics: const BouncingScrollPhysics(),
+                  children: [
+                    RepaintBoundary(child: _buildWaterPage(context)),
+                    RepaintBoundary(child: _buildNutritionPage(context)),
+                  ],
+                ),
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + kToolbarHeight + 4,
+                  left: 0,
+                  right: 0,
+                  child: _SectionPill(pagePosition: position),
+                ),
+                DropletAnimation(trigger: _dropTrigger),
+                if (_friendlyMessage != null) _friendlyMessage!,
               ],
             ),
-            Positioned(
-              top: MediaQuery.of(context).padding.top + kToolbarHeight + 4,
-              left: 0,
-              right: 0,
-              child: _SectionPill(pagePosition: _pagePosition),
-            ),
-            DropletAnimation(trigger: _dropTrigger),
-            if (_friendlyMessage != null) _friendlyMessage!,
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -582,7 +587,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Color get _activeAccentColor => Color.lerp(
         AppTheme.primaryBlue,
         const Color(0xFF7CB342),
-        _pagePosition,
+        _pagePosition.value,
       )!;
 
   int get _nutritionCompleted => _nutritionCompletedCount(_nutritionToday);
@@ -889,8 +894,7 @@ class _SwipeBackground extends StatelessWidget {
         ? const [Color(0xFF101F13), Color(0xFF27451F), Color(0xFF5B3A16)]
         : const [Color(0xFFF4FFE8), Color(0xFFFFF2CC), Colors.white];
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 260),
+    return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: List.generate(

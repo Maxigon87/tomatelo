@@ -158,10 +158,7 @@ class _AnimatedBubblesState extends State<AnimatedBubbles> with SingleTickerProv
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
-    )..addListener(() {
-        _updateBubbles();
-      })
-      ..repeat();
+    )..repeat();
   }
 
   void _initBubbles(Size size) {
@@ -191,27 +188,25 @@ class _AnimatedBubblesState extends State<AnimatedBubbles> with SingleTickerProv
   }
 
   void _updateBubbles() {
-    if (!mounted || !_initialized || _cachedSize.height == 0) return;
+    if (!_initialized || _cachedSize.height == 0) return;
     
-    setState(() {
-      for (var bubble in _bubbles) {
-        bubble.y -= bubble.speed;
-        bubble.x += bubble.drift;
-        
-        // Add a slight sine wave drift to make it look like water
-        bubble.x += sin(bubble.y * 0.015) * 0.4;
+    for (var bubble in _bubbles) {
+      bubble.y -= bubble.speed;
+      bubble.x += bubble.drift;
+      
+      // Add a slight sine wave drift to make it look like water
+      bubble.x += sin(bubble.y * 0.015) * 0.4;
 
-        // Reset if it goes off screen (to the bottom, as if coming from below)
-        if (bubble.y < -50) {
-          bubble.y = _cachedSize.height + 50;
-          bubble.x = _random.nextDouble() * _cachedSize.width;
-        }
-        
-        // Wrap horizontally
-        if (bubble.x < -50) bubble.x = _cachedSize.width + 50;
-        if (bubble.x > _cachedSize.width + 50) bubble.x = -50;
+      // Reset if it goes off screen (to the bottom, as if coming from below)
+      if (bubble.y < -50) {
+        bubble.y = _cachedSize.height + 50;
+        bubble.x = _random.nextDouble() * _cachedSize.width;
       }
-    });
+      
+      // Wrap horizontally
+      if (bubble.x < -50) bubble.x = _cachedSize.width + 50;
+      if (bubble.x > _cachedSize.width + 50) bubble.x = -50;
+    }
   }
 
   @override
@@ -222,14 +217,21 @@ class _AnimatedBubblesState extends State<AnimatedBubbles> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth > 0 && constraints.maxHeight > 0) {
           _initBubbles(Size(constraints.maxWidth, constraints.maxHeight));
         }
-        return CustomPaint(
-          size: Size(constraints.maxWidth, constraints.maxHeight),
-          painter: _BubblePainter(_bubbles, Theme.of(context).brightness == Brightness.dark),
+        return AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            _updateBubbles();
+            return CustomPaint(
+              size: Size(constraints.maxWidth, constraints.maxHeight),
+              painter: _BubblePainter(_bubbles, isDark),
+            );
+          },
         );
       },
     );

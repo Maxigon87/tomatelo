@@ -14,127 +14,310 @@ class InicioScreen extends StatefulWidget {
 class _InicioScreenState extends State<InicioScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _iconScale;
+
+  final _loginFormKey = GlobalKey<FormState>();
+  final _registerFormKey = GlobalKey<FormState>();
+
+  final _loginEmailController = TextEditingController();
+  final _loginPasswordController = TextEditingController();
+  final _registerEmailController = TextEditingController();
+  final _registerPasswordController = TextEditingController();
+
+  bool _isLoginMode = true;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2600),
-    )..repeat(reverse: true);
-
-    _iconScale = Tween<double>(begin: 0.96, end: 1.04).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
-    );
+      duration: const Duration(milliseconds: 3800),
+    )..repeat();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _loginEmailController.dispose();
+    _loginPasswordController.dispose();
+    _registerEmailController.dispose();
+    _registerPasswordController.dispose();
     super.dispose();
+  }
+
+  String? _emailValidator(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Ingresa tu correo';
+    }
+    if (!value.contains('@') || !value.contains('.')) {
+      return 'Ingresa un correo válido';
+    }
+    return null;
+  }
+
+  String? _passwordValidator(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Ingresa tu contraseña';
+    }
+    if (value.length < 6) {
+      return 'Mínimo 6 caracteres';
+    }
+    return null;
+  }
+
+  void _submitCurrentForm() {
+    final activeForm = _isLoginMode ? _loginFormKey : _registerFormKey;
+    if (activeForm.currentState?.validate() ?? false) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const SetupScreen()),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: WaterBackground(
-        child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      body: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF125AAB),
+                  AppTheme.primaryBlue,
+                  const Color(0xFF1C9C8A),
+                  const Color(0xFF4FD6B2),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: SafeArea(
+              child: Stack(
                 children: [
-                  const Spacer(flex: 2),
-                  ScaleTransition(
-                    scale: _iconScale,
-                    child: Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            Colors.white.withValues(alpha: 0.95),
-                            AppTheme.accentLightBlue.withValues(alpha: 0.45),
-                            AppTheme.secondaryAqua.withValues(alpha: 0.10),
-                          ],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryBlue.withValues(alpha: 0.22),
-                            blurRadius: 34,
-                            spreadRadius: 6,
-                            offset: const Offset(0, 18),
-                          ),
-                        ],
-                      ),
-                      child: const Image(
-                        image: AssetImage('assets/images/logo.png'),
-                        height: 250,
-                      ),
-                    ),
+                  Positioned.fill(
+                    child: _FloatingDecorations(progress: _controller.value),
                   ),
-                  const SizedBox(height: 12),
-                  AnimatedBuilder(
-                    animation: _controller,
-                    builder: (context, child) {
-                      final progress = _controller.value;
-                      return Transform.translate(
-                        offset: Offset(0, math.sin(progress * math.pi * 2) * 9),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            CustomPaint(
-                              size: const Size(270, 86),
-                              painter: _TitleDropsPainter(progress),
+                  Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 430),
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Image(
+                                  image: AssetImage('assets/images/logo.png'),
+                                  height: 120,
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  _isLoginMode
+                                      ? 'Inicia sesión en Tomatelo'
+                                      : 'Crea tu cuenta en Tomatelo',
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  _isLoginMode
+                                      ? 'Accede con tu correo y contraseña'
+                                      : 'Regístrate para empezar tu hábito',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 20),
+                                _ModeToggle(
+                                  isLoginMode: _isLoginMode,
+                                  onChanged: (isLogin) {
+                                    setState(() => _isLoginMode = isLogin);
+                                  },
+                                ),
+                                const SizedBox(height: 18),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 260),
+                                  child: _isLoginMode
+                                      ? _AuthForm(
+                                          key: const ValueKey('login_form'),
+                                          formKey: _loginFormKey,
+                                          emailController:
+                                              _loginEmailController,
+                                          passwordController:
+                                              _loginPasswordController,
+                                        )
+                                      : _AuthForm(
+                                          key: const ValueKey('register_form'),
+                                          formKey: _registerFormKey,
+                                          emailController:
+                                              _registerEmailController,
+                                          passwordController:
+                                              _registerPasswordController,
+                                        ),
+                                ),
+                                const SizedBox(height: 16),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: _submitCurrentForm,
+                                    child: Text(
+                                      _isLoginMode
+                                          ? 'Iniciar sesión'
+                                          : 'Registrarme',
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const _OutlinedAppTitle(),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  const Spacer(flex: 2),
-                  SizedBox(
-                    width: 260,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (context) => const SetupScreen(),
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(28),
-                        ),
-                      ),
-                      child: const Text(
-                        'Inicio',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ),
-                  const Spacer(flex: 1),
-                  Text(
-                    'Design: EMGI',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.55),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                 ],
               ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AuthForm extends StatelessWidget {
+  final GlobalKey<FormState> formKey;
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+
+  const _AuthForm({
+    super.key,
+    required this.formKey,
+    required this.emailController,
+    required this.passwordController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    String? emailValidator(String? value) {
+      if (value == null || value.trim().isEmpty) {
+        return 'Ingresa tu correo';
+      }
+      if (!value.contains('@') || !value.contains('.')) {
+        return 'Ingresa un correo válido';
+      }
+      return null;
+    }
+
+    String? passwordValidator(String? value) {
+      if (value == null || value.isEmpty) {
+        return 'Ingresa tu contraseña';
+      }
+      if (value.length < 6) {
+        return 'Mínimo 6 caracteres';
+      }
+      return null;
+    }
+
+    return Form(
+      key: formKey,
+      child: Column(
+        children: [
+          TextFormField(
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'Correo',
+              hintText: 'usuario@correo.com',
+              prefixIcon: Icon(Icons.mail_outline_rounded),
+            ),
+            validator: emailValidator,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: passwordController,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'Contraseña',
+              hintText: '••••••••',
+              prefixIcon: Icon(Icons.lock_outline_rounded),
+            ),
+            validator: passwordValidator,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModeToggle extends StatelessWidget {
+  final bool isLoginMode;
+  final ValueChanged<bool> onChanged;
+
+  const _ModeToggle({required this.isLoginMode, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.68),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          _ToggleButton(
+            text: 'Iniciar sesión',
+            selected: isLoginMode,
+            onTap: () => onChanged(true),
+          ),
+          _ToggleButton(
+            text: 'Registrarme',
+            selected: !isLoginMode,
+            onTap: () => onChanged(false),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToggleButton extends StatelessWidget {
+  final String text;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ToggleButton({
+    required this.text,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? AppTheme.primaryBlue : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: selected ? Colors.white : const Color(0xFF114B86),
             ),
           ),
         ),
@@ -143,145 +326,53 @@ class _InicioScreenState extends State<InicioScreen>
   }
 }
 
-class _OutlinedAppTitle extends StatelessWidget {
-  const _OutlinedAppTitle();
+class _FloatingDecorations extends StatelessWidget {
+  final double progress;
 
-  static const String _title = 'Tomatelo';
+  const _FloatingDecorations({required this.progress});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Text(
-          _title,
-          semanticsLabel: _title,
-          style: TextStyle(
-            fontSize: 46,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.1,
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 9
-              ..strokeJoin = StrokeJoin.round
-              ..color = Colors.white,
-            shadows: [
-              Shadow(
-                color: AppTheme.primaryBlue.withValues(alpha: 0.28),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+    final decorationItems = [
+      _FloatItem('🧙', 0.08, 0.18, 20, 0.4),
+      _FloatItem('🍅', 0.82, 0.20, 24, 1.5),
+      _FloatItem('🍓', 0.18, 0.72, 22, 2.8),
+      _FloatItem('🧙‍♀️', 0.78, 0.74, 20, 3.4),
+      _FloatItem('🍐', 0.52, 0.16, 21, 4.2),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          children: decorationItems.map((item) {
+            final dx = constraints.maxWidth * item.x +
+                math.cos(progress * math.pi * 2 + item.phase) * 12;
+            final dy = constraints.maxHeight * item.y +
+                math.sin(progress * math.pi * 2 + item.phase) * 18;
+            return Positioned(
+              left: dx,
+              top: dy,
+              child: Opacity(
+                opacity: 0.78,
+                child: Text(
+                  item.emoji,
+                  style: TextStyle(fontSize: item.size),
+                ),
               ),
-            ],
-          ),
-        ),
-        ShaderMask(
-          shaderCallback: (bounds) {
-            return const LinearGradient(
-              colors: [Color(0xFFE53935), Color(0xFFC62828), Color(0xFFFF6B5E)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ).createShader(bounds);
-          },
-          child: const Text(
-            _title,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 46,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.1,
-            ),
-          ),
-        ),
-      ],
+            );
+          }).toList(),
+        );
+      },
     );
   }
 }
 
-class _TitleDropsPainter extends CustomPainter {
-  final double progress;
-
-  _TitleDropsPainter(this.progress);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final dropPaint = Paint()
-      ..shader = LinearGradient(
-        colors: [
-          Colors.white.withValues(alpha: 0.88),
-          AppTheme.accentLightBlue.withValues(alpha: 0.62),
-          AppTheme.secondaryAqua.withValues(alpha: 0.36),
-        ],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ).createShader(Offset.zero & size)
-      ..style = PaintingStyle.fill;
-
-    final outlinePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.74)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4;
-
-    const drops = [
-      _DropSpec(0.07, 0.42, 7.0, 0.0),
-      _DropSpec(0.16, 0.23, 4.8, 0.7),
-      _DropSpec(0.27, 0.75, 5.5, 1.3),
-      _DropSpec(0.74, 0.27, 6.0, 2.0),
-      _DropSpec(0.86, 0.64, 4.7, 2.6),
-      _DropSpec(0.94, 0.37, 6.8, 3.2),
-    ];
-
-    for (final drop in drops) {
-      final wave = math.sin((progress * math.pi * 2) + drop.phase);
-      final center = Offset(
-        size.width * drop.x + math.cos(progress * math.pi * 2 + drop.phase) * 6,
-        size.height * drop.y + wave * 8,
-      );
-      _drawDrop(canvas, center, drop.radius, dropPaint, outlinePaint);
-    }
-  }
-
-  void _drawDrop(
-    Canvas canvas,
-    Offset center,
-    double radius,
-    Paint fill,
-    Paint outline,
-  ) {
-    final path = Path()
-      ..moveTo(center.dx, center.dy - radius * 1.45)
-      ..cubicTo(
-        center.dx + radius * 1.15,
-        center.dy - radius * 0.25,
-        center.dx + radius * 0.82,
-        center.dy + radius * 1.1,
-        center.dx,
-        center.dy + radius * 1.25,
-      )
-      ..cubicTo(
-        center.dx - radius * 0.82,
-        center.dy + radius * 1.1,
-        center.dx - radius * 1.15,
-        center.dy - radius * 0.25,
-        center.dx,
-        center.dy - radius * 1.45,
-      )
-      ..close();
-
-    canvas.drawPath(path, fill);
-    canvas.drawPath(path, outline);
-  }
-
-  @override
-  bool shouldRepaint(covariant _TitleDropsPainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
-}
-
-class _DropSpec {
+class _FloatItem {
+  final String emoji;
   final double x;
   final double y;
-  final double radius;
+  final double size;
   final double phase;
 
-  const _DropSpec(this.x, this.y, this.radius, this.phase);
+  const _FloatItem(this.emoji, this.x, this.y, this.size, this.phase);
 }

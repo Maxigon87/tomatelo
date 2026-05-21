@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tomatelo/screens/setup_screen.dart';
 import 'package:tomatelo/theme/app_theme.dart';
 
@@ -172,6 +173,45 @@ class _InicioScreenState extends State<InicioScreen>
                                       _isLoginMode
                                           ? 'Iniciar sesión'
                                           : 'Registrarme',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: TextButton.icon(
+                                    onPressed: () async {
+                                      try {
+                                        await FirebaseFirestore.instance
+                                            .collection('test')
+                                            .add({
+                                          'message': 'Hola Firebase',
+                                          'createdAt': Timestamp.now(),
+                                        });
+                                        if (!context.mounted) return;
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('¡Dato enviado a Firestore! Checkea la consola.'),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                        print('Dato enviado');
+                                      } catch (e) {
+                                        if (!context.mounted) return;
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Error: $e'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                        print('Error enviando dato: $e');
+                                      }
+                                    },
+                                    icon: const Icon(Icons.cloud_upload),
+                                    label: const Text('Enviar Test Firebase'),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white,
+                                      backgroundColor: Colors.black26,
                                     ),
                                   ),
                                 ),

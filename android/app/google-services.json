@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "694721152780",
+    "project_id": "tomatelo",
+    "storage_bucket": "tomatelo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:694721152780:android:6c16463a495c4943f36b29",
+        "android_client_info": {
+          "package_name": "com.example.tomatelo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAL_2bJHhpDTDfnsWJui6O7sIf6uQ9ht8E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

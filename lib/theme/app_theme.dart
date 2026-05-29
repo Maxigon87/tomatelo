@@ -279,3 +279,126 @@ class _BubblePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _BubblePainter oldDelegate) => true;
 }
+
+class NutritionBackground extends StatelessWidget {
+  final Widget child;
+
+  const NutritionBackground({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? const [Color(0xFF101F13), Color(0xFF27451F), Color(0xFF5B3A16)]
+              : const [Color(0xFFF4FFE8), Color(0xFFFFF2CC), Colors.white],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Stack(
+        children: [
+          const Positioned.fill(child: NutritionParticles(isActive: true)),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class NutritionParticles extends StatefulWidget {
+  final bool isActive;
+  const NutritionParticles({super.key, this.isActive = true});
+
+  @override
+  State<NutritionParticles> createState() => _NutritionParticlesState();
+}
+
+class _NutritionParticlesState extends State<NutritionParticles>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  final List<TextPainter> _painters = [];
+  final fruits = ['🍎', '🍌', '🍓', '🍊', '🥝', '🍇', '🍐'];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    );
+
+    for (final fruit in fruits) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: fruit,
+          style: const TextStyle(fontSize: 24),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      _painters.add(tp);
+    }
+
+    if (widget.isActive) _controller.repeat();
+  }
+
+  @override
+  void didUpdateWidget(NutritionParticles oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.isActive && _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.isActive) return const SizedBox.shrink();
+    
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) => CustomPaint(
+        painter: NutritionParticlesPainter(_controller.value, _painters),
+        size: Size.infinite,
+      ),
+    );
+  }
+}
+
+class NutritionParticlesPainter extends CustomPainter {
+  const NutritionParticlesPainter(this.tick, this.painters);
+
+  final double tick;
+  final List<TextPainter> painters;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var i = 0; i < 8; i++) {
+      final progress = (tick + i * 0.12) % 1;
+      final x = (size.width * ((i * 47) % 100) / 100) +
+          sin(progress * pi * 2 + i) * 15;
+      final y = -40 + (size.height + 80) * progress;
+      
+      final tp = painters[i % painters.length];
+      
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(progress * pi * 0.4);
+      tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant NutritionParticlesPainter oldDelegate) =>
+      oldDelegate.tick != tick;
+}

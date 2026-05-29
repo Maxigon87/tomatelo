@@ -23,6 +23,15 @@ void main() async {
   }
   await NotificationService.instance.initialize();
   final storageService = StorageService();
+
+  final currentUser = FirebaseAuth.instance.currentUser;
+  if (currentUser != null) {
+    await storageService.syncFromFirestore().timeout(
+      const Duration(seconds: 4),
+      onTimeout: () => debugPrint('Sync from Firestore timed out on startup'),
+    );
+  }
+
   final userData = await storageService.getUserData();
   final dailyGoal = await storageService.getDailyGoal();
 

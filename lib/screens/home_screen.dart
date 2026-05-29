@@ -3,8 +3,10 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tomatelo/models/nutrition_habit.dart';
 import 'package:tomatelo/screens/setup_screen.dart';
+import 'package:tomatelo/screens/inicio_screen.dart';
 import 'package:tomatelo/services/hydration_engine.dart';
 import 'package:tomatelo/services/notification_service.dart';
 import 'package:tomatelo/services/storage_service.dart';
@@ -333,65 +335,84 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded),
-            onSelected: (value) {
-              if (value == 'info') {
-                _showFriendlyMessage(
-                  title: _pagePosition.value < 0.5
-                      ? 'Consejo de hidratación'
-                      : 'Consejo de nutrición',
-                  message: _pagePosition.value < 0.5
-                      ? '¡Vas increíble! Bebe agua de a poco durante el día y tu cuerpo te lo va a aplaudir. 👏'
-                      : 'Suma hábitos simples y amables: una fruta, una infusión o un snack saludable. Sin culpa, paso a paso. 🍎',
-                  icon: Icons.info_outline_rounded,
-                  color: _activeAccentColor,
-                );
-                return;
-              }
+    return ValueListenableBuilder<double>(
+      valueListenable: _pagePosition,
+      builder: (context, position, child) {
+        return Scaffold(
+          extendBodyBehindAppBar: true,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            actions: [
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert_rounded),
+                onSelected: (value) {
+                  if (value == 'info') {
+                    _showFriendlyMessage(
+                      title: _pagePosition.value < 0.5
+                          ? 'Consejo de hidratación'
+                          : 'Consejo de nutrición',
+                      message: _pagePosition.value < 0.5
+                          ? '¡Vas increíble! Bebe agua de a poco durante el día y tu cuerpo te lo va a aplaudir. 👏'
+                          : 'Suma hábitos simples y amables: una fruta, una infusión o un snack saludable. Sin culpa, paso a paso. 🍎',
+                      icon: Icons.info_outline_rounded,
+                      color: _activeAccentColor,
+                    );
+                    return;
+                  }
 
-              if (value == 'settings') {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const SetupScreen(
-                      skipAutoRedirect: true,
+                  if (value == 'settings') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const SetupScreen(
+                          skipAutoRedirect: true,
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (value == 'logout') {
+                    FirebaseAuth.instance.signOut();
+                    StorageService().clearAll();
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (context) => const InicioScreen(),
+                      ),
+                      (route) => false,
+                    );
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem<String>(
+                    value: 'info',
+                    child: ListTile(
+                      leading: Icon(Icons.info_outline_rounded),
+                      title: Text('Información'),
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                );
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem<String>(
-                value: 'info',
-                child: ListTile(
-                  leading: Icon(Icons.info_outline_rounded),
-                  title: Text('Información'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem<String>(
-                value: 'settings',
-                child: ListTile(
-                  leading: Icon(Icons.settings_outlined),
-                  title: Text('Configuración'),
-                  contentPadding: EdgeInsets.zero,
-                ),
+                  PopupMenuItem<String>(
+                    value: 'settings',
+                    child: ListTile(
+                      leading: Icon(Icons.settings_outlined),
+                      title: Text('Configuración'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'logout',
+                    child: ListTile(
+                      leading: Icon(Icons.logout_rounded),
+                      title: Text('Cerrar sesión'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
-      body: ValueListenableBuilder<double>(
-        valueListenable: _pagePosition,
-        builder: (context, position, child) {
-          return _SwipeBackground(
+          body: _SwipeBackground(
             pagePosition: position,
             child: Stack(
               children: [
@@ -404,18 +425,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ],
                 ),
                 Positioned(
-                  top: MediaQuery.of(context).padding.top + kToolbarHeight + 4,
+                  top: MediaQuery.of(context).padding.top,
                   left: 0,
                   right: 0,
-                  child: _SectionPill(pagePosition: position),
+                  height: kToolbarHeight,
+                  child: Center(
+                    child: _SectionPill(pagePosition: position),
+                  ),
                 ),
                 DropletAnimation(trigger: _dropTrigger),
                 if (_friendlyMessage != null) _friendlyMessage!,
               ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -423,7 +447,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return SingleChildScrollView(
       child: Padding(
         padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + kToolbarHeight + 64,
+          top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
           left: 24,
           right: 24,
           bottom: 24,
@@ -538,7 +562,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return SingleChildScrollView(
       child: Padding(
         padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + kToolbarHeight + 64,
+          top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
           left: 24,
           right: 24,
           bottom: 24,
@@ -931,7 +955,7 @@ class _SwipeBackground extends StatelessWidget {
             child: RepaintBoundary(
               child: Opacity(
                 opacity: pagePosition.clamp(0, 1),
-                child: _NutritionParticles(isActive: pagePosition > 0.01),
+                child: NutritionParticles(isActive: pagePosition > 0.01),
               ),
             ),
           ),
@@ -940,102 +964,6 @@ class _SwipeBackground extends StatelessWidget {
       ),
     );
   }
-}
-
-class _NutritionParticles extends StatefulWidget {
-  final bool isActive;
-  const _NutritionParticles({required this.isActive});
-
-  @override
-  State<_NutritionParticles> createState() => _NutritionParticlesState();
-}
-
-class _NutritionParticlesState extends State<_NutritionParticles>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  final List<TextPainter> _painters = [];
-  final fruits = ['🍎', '🍌', '🍓', '🍊', '🥝', '🍇', '🍐'];
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 10),
-    );
-
-    for (final fruit in fruits) {
-      final tp = TextPainter(
-        text: TextSpan(
-          text: fruit,
-          style: const TextStyle(fontSize: 24),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      _painters.add(tp);
-    }
-
-    if (widget.isActive) _controller.repeat();
-  }
-
-  @override
-  void didUpdateWidget(_NutritionParticles oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isActive && !_controller.isAnimating) {
-      _controller.repeat();
-    } else if (!widget.isActive && _controller.isAnimating) {
-      _controller.stop();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!widget.isActive) return const SizedBox.shrink();
-    
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) => CustomPaint(
-        painter: _NutritionParticlesPainter(_controller.value, _painters),
-        size: Size.infinite,
-      ),
-    );
-  }
-}
-
-class _NutritionParticlesPainter extends CustomPainter {
-  const _NutritionParticlesPainter(this.tick, this.painters);
-
-  final double tick;
-  final List<TextPainter> painters;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Reduced count from 15 to 8 for better performance
-    for (var i = 0; i < 8; i++) {
-      final progress = (tick + i * 0.12) % 1;
-      final x = (size.width * ((i * 47) % 100) / 100) +
-          sin(progress * pi * 2 + i) * 15;
-      final y = -40 + (size.height + 80) * progress;
-      
-      final tp = painters[i % painters.length];
-      
-      canvas.save();
-      canvas.translate(x, y);
-      canvas.rotate(progress * pi * 0.4);
-      tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _NutritionParticlesPainter oldDelegate) =>
-      oldDelegate.tick != tick;
 }
 
 class _SectionPill extends StatelessWidget {

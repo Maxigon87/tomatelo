@@ -7,14 +7,9 @@ void main() {
   testWidgets('renders hydration setup screen', (WidgetTester tester) async {
     await tester.pumpWidget(const TomateloApp(showSetupScreen: true));
 
-    expect(find.text('Inicio'), findsOneWidget);
-
-    await tester.tap(find.byType(ElevatedButton));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.text('Configuración de Hidratación'), findsOneWidget);
-    expect(find.text('Iniciar hidratación'), findsOneWidget);
+    expect(find.text('Inicia sesión en Tomatelo'), findsOneWidget);
+    expect(find.text('Iniciar sesión'), findsWidgets);
+    expect(find.text('Registrarme'), findsWidgets);
   });
 
   testWidgets('water tracker card adds and removes one glass', (

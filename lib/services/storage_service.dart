@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -34,7 +35,7 @@ class StorageService {
         await doc.set({key: value}, SetOptions(merge: true));
       }
     } catch (e) {
-      print('Error syncing $key to Firestore: $e');
+      debugPrint('Error syncing $key to Firestore: $e');
     }
   }
 
@@ -95,7 +96,7 @@ class StorageService {
         await prefs.setStringList(_nutritionWeeklyKey, list.map((e) => e.toString()).toList());
       }
     } catch (e) {
-      print('Error syncing from Firestore: $e');
+      debugPrint('Error syncing from Firestore: $e');
     }
   }
 
@@ -278,7 +279,7 @@ class StorageService {
         await doc.update({_lastDrinkAtKey: FieldValue.delete()});
       }
     } catch (e) {
-      print('Error deleting lastDrinkAt on Firestore: $e');
+      debugPrint('Error deleting lastDrinkAt on Firestore: $e');
     }
   }
 

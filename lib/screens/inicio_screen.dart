@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tomatelo/screens/setup_screen.dart';
@@ -58,7 +58,7 @@ class _InicioScreenState extends State<InicioScreen> {
         });
       }
     } catch (e) {
-      print('Error loading remembered email: $e');
+      debugPrint('Error loading remembered email: $e');
     }
   }
 
@@ -71,7 +71,7 @@ class _InicioScreenState extends State<InicioScreen> {
         await prefs.remove('remembered_email');
       }
     } catch (e) {
-      print('Error saving remembered email: $e');
+      debugPrint('Error saving remembered email: $e');
     }
   }
 
@@ -356,8 +356,9 @@ class _InicioScreenState extends State<InicioScreen> {
                             ),
                             const SizedBox(height: 12),
                             if (_isLoginMode) ...[
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Row(
                                     mainAxisSize: MainAxisSize.min,

@@ -20,6 +20,13 @@ class StorageService {
   static const String _nutritionGoalsKey = 'nutritionGoals';
   static const String _nutritionYesterdayKey = 'nutritionYesterday';
   static const String _nutritionWeeklyKey = 'nutritionWeekly';
+  static const String _movementGoalKey = 'movementGoal';
+  static const String _movementMinutesTodayKey = 'movementMinutesToday';
+  static const String _movementStepsTodayKey = 'movementStepsToday';
+  static const String _movementYesterdayKey = 'movementYesterday';
+  static const String _movementWeeklyKey = 'movementWeekly';
+  static const String _movementHistoryKey = 'movementHistory';
+  static const String _healthConnectLinkedKey = 'healthConnectLinked';
 
   DocumentReference? get _userDoc {
     final user = FirebaseAuth.instance.currentUser;
@@ -93,6 +100,29 @@ class StorageService {
       if (data.containsKey(_nutritionWeeklyKey)) {
         final list = List<int>.from((data[_nutritionWeeklyKey] as List).map((e) => e as int));
         await prefs.setStringList(_nutritionWeeklyKey, list.map((e) => e.toString()).toList());
+      }
+      if (data.containsKey(_movementGoalKey)) {
+        await prefs.setInt(_movementGoalKey, data[_movementGoalKey] as int);
+      }
+      if (data.containsKey(_movementMinutesTodayKey)) {
+        await prefs.setInt(_movementMinutesTodayKey, data[_movementMinutesTodayKey] as int);
+      }
+      if (data.containsKey(_movementStepsTodayKey)) {
+        await prefs.setInt(_movementStepsTodayKey, data[_movementStepsTodayKey] as int);
+      }
+      if (data.containsKey(_movementYesterdayKey)) {
+        await prefs.setInt(_movementYesterdayKey, data[_movementYesterdayKey] as int);
+      }
+      if (data.containsKey(_movementWeeklyKey)) {
+        final list = List<int>.from((data[_movementWeeklyKey] as List).map((e) => e as int));
+        await prefs.setStringList(_movementWeeklyKey, list.map((e) => e.toString()).toList());
+      }
+      if (data.containsKey(_movementHistoryKey)) {
+        final list = List<String>.from(data[_movementHistoryKey] as List);
+        await prefs.setStringList(_movementHistoryKey, list);
+      }
+      if (data.containsKey(_healthConnectLinkedKey)) {
+        await prefs.setBool(_healthConnectLinkedKey, data[_healthConnectLinkedKey] as bool);
       }
     } catch (e) {
       print('Error syncing from Firestore: $e');
@@ -295,6 +325,90 @@ class StorageService {
       return DateTime.parse(dateString);
     }
     return null;
+  }
+
+  Future<void> saveMovementGoal(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_movementGoalKey, minutes);
+    await _syncToFirestore(_movementGoalKey, minutes);
+  }
+
+  Future<int> getMovementGoal() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_movementGoalKey) ?? 30; // Default 30 mins
+  }
+
+  Future<void> saveMovementMinutes(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_movementMinutesTodayKey, minutes);
+    await _syncToFirestore(_movementMinutesTodayKey, minutes);
+  }
+
+  Future<int> getMovementMinutes() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_movementMinutesTodayKey) ?? 0;
+  }
+
+  Future<void> saveMovementSteps(int steps) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_movementStepsTodayKey, steps);
+    await _syncToFirestore(_movementStepsTodayKey, steps);
+  }
+
+  Future<int> getMovementSteps() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_movementStepsTodayKey) ?? 0;
+  }
+
+  Future<void> saveMovementYesterday(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_movementYesterdayKey, minutes);
+    await _syncToFirestore(_movementYesterdayKey, minutes);
+  }
+
+  Future<int> getMovementYesterday() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_movementYesterdayKey) ?? 0;
+  }
+
+  Future<void> saveMovementWeeklyData(List<int> weeklyData) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _movementWeeklyKey,
+      weeklyData.map((e) => e.toString()).toList(),
+    );
+    await _syncToFirestore(_movementWeeklyKey, weeklyData);
+  }
+
+  Future<List<int>> getMovementWeeklyData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final weeklyData = prefs.getStringList(_movementWeeklyKey);
+    if (weeklyData != null) {
+      return weeklyData.map((e) => int.tryParse(e) ?? 0).toList();
+    }
+    return List.filled(7, 0);
+  }
+
+  Future<void> saveMovementHistory(List<String> dates) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_movementHistoryKey, dates);
+    await _syncToFirestore(_movementHistoryKey, dates);
+  }
+
+  Future<List<String>> getMovementHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_movementHistoryKey) ?? [];
+  }
+
+  Future<void> saveHealthConnectLinked(bool linked) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_healthConnectLinkedKey, linked);
+    await _syncToFirestore(_healthConnectLinkedKey, linked);
+  }
+
+  Future<bool> isHealthConnectLinked() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_healthConnectLinkedKey) ?? false;
   }
 
   Future<void> clearAll() async {

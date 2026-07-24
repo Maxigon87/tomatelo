@@ -43,6 +43,8 @@ dependencies:
   firebase_core: ^4.9.0
   cloud_firestore: ^6.4.1
   firebase_auth: ^6.5.1
+  health: ^13.1.4
+  confetti: ^0.7.0
 
 dev_dependencies:
   flutter_test:

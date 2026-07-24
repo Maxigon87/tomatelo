@@ -4,20 +4,24 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:confetti/confetti.dart';
 import 'package:tomatelo/models/nutrition_habit.dart';
 import 'package:tomatelo/screens/setup_screen.dart';
 import 'package:tomatelo/screens/inicio_screen.dart';
 import 'package:tomatelo/services/hydration_engine.dart';
 import 'package:tomatelo/services/notification_service.dart';
 import 'package:tomatelo/services/storage_service.dart';
+import 'package:tomatelo/services/health_service.dart';
 import 'package:tomatelo/theme/app_theme.dart';
 import 'package:tomatelo/utils/constants.dart';
 import 'package:tomatelo/widgets/droplet_animation.dart';
 import 'package:tomatelo/widgets/friendly_message.dart';
 import 'package:tomatelo/widgets/hydration_pet.dart';
 import 'package:tomatelo/widgets/nutrition_pet.dart';
+import 'package:tomatelo/widgets/movement_pet.dart';
 import 'package:tomatelo/widgets/nutrition_tracker_card.dart';
 import 'package:tomatelo/widgets/water_tracker_card.dart';
+import 'package:tomatelo/widgets/movement_tracker_card.dart';
 import 'package:tomatelo/widgets/weekly_chart.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -53,6 +57,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Map<String, int> _nutritionYesterday = {};
   List<int> _nutritionWeeklyData = List.filled(7, 0);
 
+  late final ConfettiController _confettiController;
+  int _movementMinutesToday = 0;
+  int _movementStepsToday = 0;
+  int _movementGoal = 30;
+  int _movementYesterday = 0;
+  List<int> _movementWeeklyData = List.filled(7, 0);
+  List<String> _movementHistory = [];
+  bool _healthConnectLinked = false;
+  bool _movementCelebrated = false;
+  bool _healthConnectAvailable = false;
+
   @override
   void initState() {
     super.initState();
@@ -60,8 +75,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _hydrationRefresh = const Duration(minutes: 1);
     _pagePosition = ValueNotifier<double>(0);
     _pageController.addListener(_handlePageScroll);
+    _confettiController = ConfettiController(duration: const Duration(seconds: 3));
     _initializeScreen();
     _startAdvisorRefresh();
+    _checkHealthConnectAvailability();
   }
 
   @override
@@ -71,6 +88,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ..removeListener(_handlePageScroll)
       ..dispose();
     _pagePosition.dispose();
+    _confettiController.dispose();
     super.dispose();
   }
 
@@ -85,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!_pageController.hasClients) {
       return;
     }
-    _pagePosition.value = (_pageController.page ?? 0).clamp(0, 1).toDouble();
+    _pagePosition.value = (_pageController.page ?? 0).clamp(0, 2).toDouble();
   }
 
   void _startAdvisorRefresh() {
@@ -182,6 +200,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (storedGoals.isEmpty) {
       await _storageService.saveNutritionGoals(nutritionGoals);
     }
+
+    final movementGoal = await _storageService.getMovementGoal();
+    final movementMinutes = await _storageService.getMovementMinutes();
+    final movementSteps = await _storageService.getMovementSteps();
+    final movementYesterday = await _storageService.getMovementYesterday();
+    final movementWeeklyData = await _storageService.getMovementWeeklyData();
+    final movementHistory = await _storageService.getMovementHistory();
+    final healthConnectLinked = await _storageService.isHealthConnectLinked();
+
     if (!mounted) return;
     setState(() {
       _glassesToday = glassesToday;
@@ -197,8 +224,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _nutritionYesterday = nutritionYesterday;
       _nutritionWeeklyData = nutritionWeeklyData;
       _refreshHydrationAdvice();
+
+      _movementGoal = movementGoal;
+      _movementMinutesToday = movementMinutes;
+      _movementStepsToday = movementSteps;
+      _movementYesterday = movementYesterday;
+      _movementWeeklyData = movementWeeklyData;
+      _movementHistory = movementHistory;
+      _healthConnectLinked = healthConnectLinked;
+      _movementCelebrated = movementMinutes >= movementGoal && movementGoal > 0;
     });
     await _updateWidget(_glassesToday, _dailyGoal);
+    if (healthConnectLinked) {
+      await _fetchHealthConnectData();
+    }
   }
 
   Future<void> _resetDataAtMidnight() async {
@@ -237,6 +276,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await _storageService.saveGlassesYesterday(storedGlassesToday);
       await _storageService.saveGlassesToday(0);
       await _storageService.clearLastDrinkAt();
+
+      // Movement reset at midnight
+      final storedMovementMinutes = await _storageService.getMovementMinutes();
+      final movementWeeklyData = List<int>.from(await _storageService.getMovementWeeklyData());
+      movementWeeklyData.removeAt(0);
+      movementWeeklyData.add(storedMovementMinutes);
+      await _storageService.saveMovementWeeklyData(movementWeeklyData);
+      await _storageService.saveMovementYesterday(storedMovementMinutes);
+      await _storageService.saveMovementMinutes(0);
+      await _storageService.saveMovementSteps(0);
+
       await _storageService.saveLastReset(now);
     }
   }
@@ -352,10 +402,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     _showFriendlyMessage(
                       title: _pagePosition.value < 0.5
                           ? 'Consejo de hidratación'
-                          : 'Consejo de nutrición',
+                          : _pagePosition.value < 1.5
+                              ? 'Consejo de nutrición'
+                              : 'Consejo de movimiento',
                       message: _pagePosition.value < 0.5
                           ? '¡Vas increíble! Bebe agua de a poco durante el día y tu cuerpo te lo va a aplaudir. 👏'
-                          : 'Suma hábitos simples y amables: una fruta, una infusión o un snack saludable. Sin culpa, paso a paso. 🍎',
+                          : _pagePosition.value < 1.5
+                              ? 'Suma hábitos simples y amables: una fruta, una infusión o un snack saludable. Sin culpa, paso a paso. 🍎'
+                              : 'Camina y muévete para activar tu cuerpo. 30 minutos al día equivalen a unos 3,000 pasos activos. ¡Tú puedes! 🏃‍♂️',
                       icon: Icons.info_outline_rounded,
                       color: _activeAccentColor,
                     );
@@ -372,6 +426,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     );
                   }
 
+                  if (value == 'movement_goal') {
+                    _showMovementGoalSheet();
+                    return;
+                  }
+
                   if (value == 'logout') {
                     FirebaseAuth.instance.signOut();
                     StorageService().clearAll();
@@ -383,8 +442,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     );
                   }
                 },
-                itemBuilder: (context) => const [
-                  PopupMenuItem<String>(
+                itemBuilder: (context) => [
+                  const PopupMenuItem<String>(
                     value: 'info',
                     child: ListTile(
                       leading: Icon(Icons.info_outline_rounded),
@@ -392,7 +451,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                  PopupMenuItem<String>(
+                  if (_pagePosition.value >= 1.5)
+                    const PopupMenuItem<String>(
+                      value: 'movement_goal',
+                      child: ListTile(
+                        leading: Icon(Icons.edit_road_rounded),
+                        title: Text('Meta de caminata'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  const PopupMenuItem<String>(
                     value: 'settings',
                     child: ListTile(
                       leading: Icon(Icons.settings_outlined),
@@ -400,7 +468,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                  PopupMenuItem<String>(
+                  const PopupMenuItem<String>(
                     value: 'logout',
                     child: ListTile(
                       leading: Icon(Icons.logout_rounded),
@@ -422,6 +490,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   children: [
                     RepaintBoundary(child: _buildWaterPage(context)),
                     RepaintBoundary(child: _buildNutritionPage(context)),
+                    RepaintBoundary(child: _buildMovementPage(context)),
                   ],
                 ),
                 Positioned(
@@ -430,10 +499,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   right: 0,
                   height: kToolbarHeight,
                   child: Center(
-                    child: _SectionPill(pagePosition: position),
+                    child: _SectionPill(
+                      pagePosition: position,
+                      activeColor: _activeAccentColor,
+                    ),
                   ),
                 ),
                 DropletAnimation(trigger: _dropTrigger),
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: ConfettiWidget(
+                    confettiController: _confettiController,
+                    blastDirectionality: BlastDirectionality.explosive,
+                    shouldLoop: false,
+                    colors: const [
+                      Colors.green,
+                      Colors.blue,
+                      Colors.pink,
+                      Colors.orange,
+                      Colors.purple,
+                      Colors.yellow,
+                    ],
+                  ),
+                ),
                 if (_friendlyMessage != null) _friendlyMessage!,
               ],
             ),
@@ -614,11 +702,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
 
-  Color get _activeAccentColor => Color.lerp(
+  Color get _activeAccentColor {
+    if (_pagePosition.value <= 1.0) {
+      return Color.lerp(
         AppTheme.primaryBlue,
         const Color(0xFF7CB342),
         _pagePosition.value,
       )!;
+    } else {
+      return Color.lerp(
+        const Color(0xFF7CB342),
+        const Color(0xFFE65100),
+        (_pagePosition.value - 1.0).clamp(0.0, 1.0),
+      )!;
+    }
+  }
 
   int get _nutritionCompleted => _nutritionCompletedCount(_nutritionToday);
 
@@ -906,6 +1004,455 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // Después de las 20 (noche): Triste si no cumplió la meta
     return progress >= 0.8 ? NutritionPetMood.happy : NutritionPetMood.tired;
   }
+
+  Future<void> _checkHealthConnectAvailability() async {
+    final available = await HealthService.instance.isAvailable();
+    if (!mounted) return;
+    setState(() {
+      _healthConnectAvailable = available;
+    });
+  }
+
+  Future<void> _linkHealthConnect() async {
+    final success = await HealthService.instance.requestPermissions();
+    if (success) {
+      setState(() {
+        _healthConnectLinked = true;
+      });
+      await _storageService.saveHealthConnectLinked(true);
+      await _fetchHealthConnectData();
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se otorgaron los permisos de Conexión de Salud. Puedes registrar manualmente.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _fetchHealthConnectData() async {
+    if (!_healthConnectLinked) return;
+    final data = await HealthService.instance.fetchTodayData();
+    final steps = data['steps'] ?? 0;
+    final minutes = data['minutes'] ?? 0;
+
+    final currentMinutes = await _storageService.getMovementMinutes();
+    final currentSteps = await _storageService.getMovementSteps();
+
+    if (minutes > currentMinutes || steps > currentSteps) {
+      final oldMinutes = _movementMinutesToday;
+      setState(() {
+        if (minutes > currentMinutes) _movementMinutesToday = minutes;
+        if (steps > currentSteps) _movementStepsToday = steps;
+      });
+      await _storageService.saveMovementMinutes(_movementMinutesToday);
+      await _storageService.saveMovementSteps(_movementStepsToday);
+      _checkMovementGoalReached(oldMinutes, _movementMinutesToday);
+    }
+  }
+
+  void _incrementMovementMinutes(int delta) async {
+    final oldMinutes = _movementMinutesToday;
+    setState(() {
+      _movementMinutesToday += delta;
+    });
+    await _storageService.saveMovementMinutes(_movementMinutesToday);
+    _checkMovementGoalReached(oldMinutes, _movementMinutesToday);
+  }
+
+  void _decrementMovementMinutes(int delta) async {
+    if (_movementMinutesToday <= 0) return;
+    setState(() {
+      _movementMinutesToday = max(0, _movementMinutesToday - delta);
+      if (_movementMinutesToday < _movementGoal) {
+        _movementCelebrated = false;
+      }
+    });
+    await _storageService.saveMovementMinutes(_movementMinutesToday);
+  }
+
+  void _incrementMovementSteps(int delta) async {
+    setState(() {
+      _movementStepsToday += delta;
+    });
+    await _storageService.saveMovementSteps(_movementStepsToday);
+  }
+
+  void _checkMovementGoalReached(int oldMinutes, int newMinutes) async {
+    if (newMinutes >= _movementGoal && oldMinutes < _movementGoal && !_movementCelebrated) {
+      setState(() {
+        _movementCelebrated = true;
+      });
+      
+      final todayStr = DateTime.now().toIso8601String().split('T')[0];
+      if (!_movementHistory.contains(todayStr)) {
+        _movementHistory.add(todayStr);
+        await _storageService.saveMovementHistory(_movementHistory);
+      }
+
+      _confettiController.play();
+      _showFriendlyMessage(
+        title: '¡Meta alcanzada! 🌟',
+        message: 'Completaste tus $_movementGoal minutos de movimiento hoy. Tu cuerpo y tu mente te lo agradecen. ¡A mantener la racha!',
+        icon: Icons.celebration_rounded,
+        color: const Color(0xFFE65100),
+      );
+    }
+  }
+
+  int _calculateStreak() {
+    if (_movementHistory.isEmpty) return 0;
+    
+    final sortedDates = List<String>.from(_movementHistory)..sort();
+    int streak = 0;
+    DateTime checkDate = DateTime.now();
+    final todayStr = checkDate.toIso8601String().split('T')[0];
+    final yesterdayStr = checkDate.subtract(const Duration(days: 1)).toIso8601String().split('T')[0];
+    
+    if (!sortedDates.contains(todayStr) && !sortedDates.contains(yesterdayStr)) {
+      return 0;
+    }
+    
+    if (sortedDates.contains(todayStr)) {
+      checkDate = DateTime.now();
+    } else {
+      checkDate = DateTime.now().subtract(const Duration(days: 1));
+    }
+    
+    while (true) {
+      final dateStr = checkDate.toIso8601String().split('T')[0];
+      if (sortedDates.contains(dateStr)) {
+        streak++;
+        checkDate = checkDate.subtract(const Duration(days: 1));
+      } else {
+        break;
+      }
+    }
+    
+    return streak;
+  }
+
+  void _showMovementGoalSheet() {
+    int tempGoal = _movementGoal;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.96),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Meta de movimiento diario',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Ajusta tu meta diaria en minutos activos de caminata.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton.filledTonal(
+                        onPressed: tempGoal > 5
+                            ? () => setSheetState(() => tempGoal -= 5)
+                            : null,
+                        icon: const Icon(Icons.remove_rounded),
+                      ),
+                      Container(
+                        width: 100,
+                        alignment: Alignment.center,
+                        child: Text(
+                          '$tempGoal min',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      IconButton.filledTonal(
+                        onPressed: tempGoal < 180
+                            ? () => setSheetState(() => tempGoal += 5)
+                            : null,
+                        icon: const Icon(Icons.add_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () {
+                        setState(() {
+                          _movementGoal = tempGoal;
+                          _movementCelebrated = _movementMinutesToday >= _movementGoal;
+                        });
+                        _storageService.saveMovementGoal(tempGoal);
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Guardar meta'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMovementPage(BuildContext context) {
+    final streak = _calculateStreak();
+    final activeMood = _movementMinutesToday >= _movementGoal
+        ? MovementPetMood.happy
+        : _movementMinutesToday > 0
+            ? MovementPetMood.walking
+            : MovementPetMood.bored;
+
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Padding(
+        padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
+          left: 24,
+          right: 24,
+          bottom: 24,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: 6),
+            RepaintBoundary(
+              child: MovementPet(
+                mood: activeMood,
+                size: 112,
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (!_healthConnectLinked && _healthConnectAvailable) ...[
+              _GradientInfoCard(
+                colors: const [Color(0xFFFFB74D), Color(0xFFE65100)],
+                shadowColor: const Color(0xFFE65100),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.favorite_rounded,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Sincroniza tus pasos automáticos',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Para que no tengas que activar un cronómetro cada vez que caminas, nos conectamos de forma segura con Conexión de Salud (Google Health Connect). Así, tu teléfono contará tus minutos activos en segundo plano de manera ultra eficiente.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _linkHealthConnect,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFFE65100),
+                        elevation: 4,
+                      ),
+                      child: const Text(
+                        'Vincular con Conexión de Salud',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _healthConnectLinked = false;
+                          _healthConnectAvailable = false;
+                        });
+                      },
+                      child: const Text(
+                        'O continuar con registro manual',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ] else ...[
+              MovementTrackerCard(
+                currentMinutes: _movementMinutesToday,
+                goalMinutes: _movementGoal,
+                currentSteps: _movementStepsToday,
+                onAddMinutes: () => _incrementMovementMinutes(5),
+                onRemoveMinutes: () => _decrementMovementMinutes(5),
+                onAddSteps: () => _incrementMovementSteps(500),
+                showManualControls: true,
+              ),
+              const SizedBox(height: 18),
+              _GradientInfoCard(
+                colors: const [Color(0xFFFFB74D), Color(0xFFE65100)],
+                shadowColor: const Color(0xFFE65100),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _CardTitle(icon: Icons.insights_rounded, title: 'Resumen de actividad'),
+                    const SizedBox(height: 16),
+                    _StatusChip(label: 'Racha actual: $streak días 🔥'),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Distancia estimada: ${(_movementStepsToday * 0.0007).toStringAsFixed(2)} km\n'
+                      'Calorías activas estimadas: ${(_movementMinutesToday * 5.5).round()} kcal',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        fontWeight: FontWeight.w600,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Conexión de Salud:',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.88),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        _StatusChip(
+                          label: _healthConnectLinked ? '🟢 Conectado' : '⚪ Manual',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _GradientInfoCard(
+                colors: const [Color(0xFFFFCC80), Color(0xFFFFB74D)],
+                shadowColor: const Color(0xFFFFB74D),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _CardTitle(icon: Icons.military_tech_rounded, title: 'Logros y Medallas'),
+                    const SizedBox(height: 16),
+                    _buildMedalRow(
+                      title: 'Caminante Constante',
+                      subtitle: '3 días seguidos cumpliendo la meta',
+                      icon: '🎖️',
+                      unlocked: streak >= 3,
+                    ),
+                    const Divider(color: Colors.white24, height: 20),
+                    _buildMedalRow(
+                      title: 'Hábito de Hierro',
+                      subtitle: '7 días seguidos cumpliendo la meta',
+                      icon: '🏆',
+                      unlocked: streak >= 7,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              RepaintBoundary(
+                child: WeeklyChart(
+                  data: _movementWeeklyData,
+                  gradientColors: const [Color(0xFFFFB74D), Color(0xFFE65100)],
+                  shadowColor: const Color(0xFFE65100),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMedalRow({
+    required String title,
+    required String subtitle,
+    required String icon,
+    required bool unlocked,
+  }) {
+    return Row(
+      children: [
+        Opacity(
+          opacity: unlocked ? 1.0 : 0.25,
+          child: Text(icon, style: const TextStyle(fontSize: 32)),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: unlocked ? 1.0 : 0.6),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  decoration: unlocked ? null : TextDecoration.lineThrough,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: unlocked ? 0.85 : 0.45),
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Icon(
+          unlocked ? Icons.check_circle_rounded : Icons.lock_outline_rounded,
+          color: unlocked ? Colors.white : Colors.white30,
+        ),
+      ],
+    );
+  }
 }
 
 class _SwipeBackground extends StatelessWidget {
@@ -923,20 +1470,35 @@ class _SwipeBackground extends StatelessWidget {
     final nutritionColors = isDark
         ? const [Color(0xFF101F13), Color(0xFF27451F), Color(0xFF5B3A16)]
         : const [Color(0xFFF4FFE8), Color(0xFFFFF2CC), Colors.white];
+    final movementColors = isDark
+        ? const [Color(0xFF2C1607), Color(0xFF5A2A0C), Color(0xFF783E0E)]
+        : const [Color(0xFFFFF4EB), Color(0xFFFFE3CC), Colors.white];
+
+    List<Color> currentColors;
+    if (pagePosition <= 1.0) {
+      currentColors = List.generate(
+        waterColors.length,
+        (index) => Color.lerp(
+          waterColors[index],
+          nutritionColors[index],
+          pagePosition.clamp(0.0, 1.0),
+        )!,
+      );
+    } else {
+      currentColors = List.generate(
+        nutritionColors.length,
+        (index) => Color.lerp(
+          nutritionColors[index],
+          movementColors[index],
+          (pagePosition - 1.0).clamp(0.0, 1.0),
+        )!,
+      );
+    }
 
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: pagePosition <= 0 ? waterColors : 
-                  pagePosition >= 1 ? nutritionColors : 
-                  List.generate(
-                    waterColors.length,
-                    (index) => Color.lerp(
-                      waterColors[index],
-                      nutritionColors[index],
-                      pagePosition,
-                    )!,
-                  ),
+          colors: currentColors,
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
@@ -946,7 +1508,7 @@ class _SwipeBackground extends StatelessWidget {
           Positioned.fill(
             child: RepaintBoundary(
               child: Opacity(
-                opacity: (1 - pagePosition).clamp(0, 1),
+                opacity: (1.0 - pagePosition).clamp(0.0, 1.0),
                 child: AnimatedBubbles(isActive: pagePosition < 0.99),
               ),
             ),
@@ -954,8 +1516,16 @@ class _SwipeBackground extends StatelessWidget {
           Positioned.fill(
             child: RepaintBoundary(
               child: Opacity(
-                opacity: pagePosition.clamp(0, 1),
-                child: NutritionParticles(isActive: pagePosition > 0.01),
+                opacity: (1.0 - (pagePosition - 1.0).abs()).clamp(0.0, 1.0),
+                child: NutritionParticles(isActive: pagePosition > 0.01 && pagePosition < 1.99),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: RepaintBoundary(
+              child: Opacity(
+                opacity: (pagePosition - 1.0).clamp(0.0, 1.0),
+                child: MovementParticles(isActive: pagePosition > 1.01),
               ),
             ),
           ),
@@ -967,9 +1537,10 @@ class _SwipeBackground extends StatelessWidget {
 }
 
 class _SectionPill extends StatelessWidget {
-  const _SectionPill({required this.pagePosition});
+  const _SectionPill({required this.pagePosition, required this.activeColor});
 
   final double pagePosition;
+  final Color activeColor;
 
   @override
   Widget build(BuildContext context) {
@@ -990,9 +1561,11 @@ class _SectionPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _PillItem(label: '💧 Agua', selected: pagePosition < 0.5),
+            _PillItem(label: '💧 Agua', selected: pagePosition < 0.5, activeColor: activeColor),
             const SizedBox(width: 6),
-            _PillItem(label: '🍎 Nutrición', selected: pagePosition >= 0.5),
+            _PillItem(label: '🍎 Nutrición', selected: pagePosition >= 0.5 && pagePosition < 1.5, activeColor: activeColor),
+            const SizedBox(width: 6),
+            _PillItem(label: '🏃 Actividad', selected: pagePosition >= 1.5, activeColor: activeColor),
           ],
         ),
       ),
@@ -1001,10 +1574,11 @@ class _SectionPill extends StatelessWidget {
 }
 
 class _PillItem extends StatelessWidget {
-  const _PillItem({required this.label, required this.selected});
+  const _PillItem({required this.label, required this.selected, required this.activeColor});
 
   final String label;
   final bool selected;
+  final Color activeColor;
 
   @override
   Widget build(BuildContext context) {
@@ -1018,7 +1592,7 @@ class _PillItem extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          color: selected ? const Color(0xFF2F80ED) : Colors.black54,
+          color: selected ? activeColor : Colors.black54,
           fontWeight: FontWeight.w800,
           fontSize: 12,
         ),

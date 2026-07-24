@@ -402,3 +402,98 @@ class NutritionParticlesPainter extends CustomPainter {
   bool shouldRepaint(covariant NutritionParticlesPainter oldDelegate) =>
       oldDelegate.tick != tick;
 }
+
+class MovementParticles extends StatefulWidget {
+  final bool isActive;
+  const MovementParticles({super.key, this.isActive = true});
+
+  @override
+  State<MovementParticles> createState() => _MovementParticlesState();
+}
+
+class _MovementParticlesState extends State<MovementParticles>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  final List<TextPainter> _painters = [];
+  final items = ['👟', '👣', '✦', '🌟', '🏆', '👣', '🌟'];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 12),
+    );
+
+    for (final item in items) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: item,
+          style: const TextStyle(fontSize: 22),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      _painters.add(tp);
+    }
+
+    if (widget.isActive) _controller.repeat();
+  }
+
+  @override
+  void didUpdateWidget(MovementParticles oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.isActive && _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.isActive) return const SizedBox.shrink();
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) => CustomPaint(
+        painter: MovementParticlesPainter(_controller.value, _painters),
+        size: Size.infinite,
+      ),
+    );
+  }
+}
+
+class MovementParticlesPainter extends CustomPainter {
+  const MovementParticlesPainter(this.tick, this.painters);
+
+  final double tick;
+  final List<TextPainter> painters;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var i = 0; i < 7; i++) {
+      final progress = (tick + i * 0.15) % 1;
+      final x = (size.width * ((i * 59) % 100) / 100) +
+          sin(progress * pi * 2 + i) * 12;
+      final y = size.height + 40 - (size.height + 80) * progress; // Float upwards
+
+      final tp = painters[i % painters.length];
+
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(progress * pi * 0.35);
+      tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant MovementParticlesPainter oldDelegate) =>
+      oldDelegate.tick != tick;
+}

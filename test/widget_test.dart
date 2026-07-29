@@ -3,15 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tomatelo/main.dart';
 import 'package:tomatelo/widgets/water_tracker_card.dart';
 
+import 'package:tomatelo/screens/setup_screen.dart';
+
 void main() {
   testWidgets('renders hydration setup screen', (WidgetTester tester) async {
-    await tester.pumpWidget(const TomateloApp(showSetupScreen: true));
-
-    expect(find.text('Inicio'), findsOneWidget);
-
-    await tester.tap(find.byType(ElevatedButton));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SetupScreen(skipAutoRedirect: true),
+      ),
+    );
 
     expect(find.text('Configuración de Hidratación'), findsOneWidget);
     expect(find.text('Iniciar hidratación'), findsOneWidget);

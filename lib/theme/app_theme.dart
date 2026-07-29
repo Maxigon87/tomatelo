@@ -112,172 +112,17 @@ class WaterBackground extends StatelessWidget {
           end: Alignment.bottomCenter,
         ),
       ),
-      child: Stack(
-        children: [
-          const Positioned.fill(child: AnimatedBubbles(isActive: true)),
-          child,
-        ],
-      ),
+      child: child,
     );
   }
 }
 
-class Bubble {
-  double x;
-  double y;
-  double radius;
-  double speed;
-  double drift;
-  
-  Bubble({
-    required this.x,
-    required this.y,
-    required this.radius,
-    required this.speed,
-    required this.drift,
-  });
-}
-
-class AnimatedBubbles extends StatefulWidget {
+class AnimatedBubbles extends StatelessWidget {
   final bool isActive;
   const AnimatedBubbles({super.key, this.isActive = true});
 
   @override
-  State<AnimatedBubbles> createState() => _AnimatedBubblesState();
-}
-
-class _AnimatedBubblesState extends State<AnimatedBubbles> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  final List<Bubble> _bubbles = [];
-  final Random _random = Random();
-  bool _initialized = false;
-  Size _cachedSize = Size.zero;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    );
-    
-    if (widget.isActive) {
-      _controller.repeat();
-    }
-  }
-
-  @override
-  void didUpdateWidget(AnimatedBubbles oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isActive && !_controller.isAnimating) {
-      _controller.repeat();
-    } else if (!widget.isActive && _controller.isAnimating) {
-      _controller.stop();
-    }
-  }
-
-  void _initBubbles(Size size) {
-    if (_initialized) {
-      return;
-    }
-    _cachedSize = size;
-    _initialized = true;
-    _bubbles.clear();
-    
-    // Create fewer groups for better performance
-    for (int i = 0; i < 4; i++) {
-      double groupX = _random.nextDouble() * size.width;
-      double groupY = _random.nextDouble() * size.height;
-      int bubblesInGroup = _random.nextInt(3) + 2; // 2 to 4 bubbles per group
-      
-      for (int j = 0; j < bubblesInGroup; j++) {
-        _bubbles.add(Bubble(
-          x: groupX + (_random.nextDouble() - 0.5) * 60,
-          y: groupY + (_random.nextDouble() - 0.5) * 60,
-          radius: _random.nextDouble() * 12 + 4,
-          speed: _random.nextDouble() * 0.7 + 0.3,
-          drift: (_random.nextDouble() - 0.5) * 0.2,
-        ));
-      }
-    }
-  }
-
-  void _updateBubbles() {
-    if (!_initialized || _cachedSize.height == 0) return;
-    
-    for (var bubble in _bubbles) {
-      bubble.y -= bubble.speed;
-      bubble.x += bubble.drift;
-      
-      // Add a slight sine wave drift to make it look like water
-      bubble.x += sin(bubble.y * 0.015) * 0.4;
-
-      // Reset if it goes off screen (to the bottom, as if coming from below)
-      if (bubble.y < -50) {
-        bubble.y = _cachedSize.height + 50;
-        bubble.x = _random.nextDouble() * _cachedSize.width;
-      }
-      
-      // Wrap horizontally
-      if (bubble.x < -50) bubble.x = _cachedSize.width + 50;
-      if (bubble.x > _cachedSize.width + 50) bubble.x = -50;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth > 0 && constraints.maxHeight > 0) {
-          _initBubbles(Size(constraints.maxWidth, constraints.maxHeight));
-        }
-        return AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            _updateBubbles();
-            return CustomPaint(
-              size: Size(constraints.maxWidth, constraints.maxHeight),
-              painter: _BubblePainter(_bubbles, isDark),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _BubblePainter extends CustomPainter {
-  final List<Bubble> bubbles;
-  final bool isDark;
-
-  _BubblePainter(this.bubbles, this.isDark);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = (isDark ? Colors.white : const Color(0xFF4FC3F7)).withValues(alpha: 0.12)
-      ..style = PaintingStyle.fill;
-      
-    final borderPaint = Paint()
-      ..color = (isDark ? Colors.white : const Color(0xFF4FC3F7)).withValues(alpha: 0.25)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-
-    for (var bubble in bubbles) {
-      canvas.drawCircle(Offset(bubble.x, bubble.y), bubble.radius, paint);
-      canvas.drawCircle(Offset(bubble.x, bubble.y), bubble.radius, borderPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _BubblePainter oldDelegate) => true;
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 class NutritionBackground extends StatelessWidget {
@@ -298,202 +143,23 @@ class NutritionBackground extends StatelessWidget {
           end: Alignment.bottomCenter,
         ),
       ),
-      child: Stack(
-        children: [
-          const Positioned.fill(child: NutritionParticles(isActive: true)),
-          child,
-        ],
-      ),
+      child: child,
     );
   }
 }
 
-class NutritionParticles extends StatefulWidget {
+class NutritionParticles extends StatelessWidget {
   final bool isActive;
   const NutritionParticles({super.key, this.isActive = true});
 
   @override
-  State<NutritionParticles> createState() => _NutritionParticlesState();
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
-class _NutritionParticlesState extends State<NutritionParticles>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  final List<TextPainter> _painters = [];
-  final fruits = ['🍎', '🍌', '🍓', '🍊', '🥝', '🍇', '🍐'];
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 10),
-    );
-
-    for (final fruit in fruits) {
-      final tp = TextPainter(
-        text: TextSpan(
-          text: fruit,
-          style: const TextStyle(fontSize: 24),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      _painters.add(tp);
-    }
-
-    if (widget.isActive) _controller.repeat();
-  }
-
-  @override
-  void didUpdateWidget(NutritionParticles oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isActive && !_controller.isAnimating) {
-      _controller.repeat();
-    } else if (!widget.isActive && _controller.isAnimating) {
-      _controller.stop();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!widget.isActive) return const SizedBox.shrink();
-    
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) => CustomPaint(
-        painter: NutritionParticlesPainter(_controller.value, _painters),
-        size: Size.infinite,
-      ),
-    );
-  }
-}
-
-class NutritionParticlesPainter extends CustomPainter {
-  const NutritionParticlesPainter(this.tick, this.painters);
-
-  final double tick;
-  final List<TextPainter> painters;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (var i = 0; i < 8; i++) {
-      final progress = (tick + i * 0.12) % 1;
-      final x = (size.width * ((i * 47) % 100) / 100) +
-          sin(progress * pi * 2 + i) * 15;
-      final y = -40 + (size.height + 80) * progress;
-      
-      final tp = painters[i % painters.length];
-      
-      canvas.save();
-      canvas.translate(x, y);
-      canvas.rotate(progress * pi * 0.4);
-      tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant NutritionParticlesPainter oldDelegate) =>
-      oldDelegate.tick != tick;
-}
-
-class MovementParticles extends StatefulWidget {
+class MovementParticles extends StatelessWidget {
   final bool isActive;
   const MovementParticles({super.key, this.isActive = true});
 
   @override
-  State<MovementParticles> createState() => _MovementParticlesState();
-}
-
-class _MovementParticlesState extends State<MovementParticles>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  final List<TextPainter> _painters = [];
-  final items = ['👟', '👣', '✦', '🌟', '🏆', '👣', '🌟'];
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 12),
-    );
-
-    for (final item in items) {
-      final tp = TextPainter(
-        text: TextSpan(
-          text: item,
-          style: const TextStyle(fontSize: 22),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      _painters.add(tp);
-    }
-
-    if (widget.isActive) _controller.repeat();
-  }
-
-  @override
-  void didUpdateWidget(MovementParticles oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isActive && !_controller.isAnimating) {
-      _controller.repeat();
-    } else if (!widget.isActive && _controller.isAnimating) {
-      _controller.stop();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!widget.isActive) return const SizedBox.shrink();
-
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) => CustomPaint(
-        painter: MovementParticlesPainter(_controller.value, _painters),
-        size: Size.infinite,
-      ),
-    );
-  }
-}
-
-class MovementParticlesPainter extends CustomPainter {
-  const MovementParticlesPainter(this.tick, this.painters);
-
-  final double tick;
-  final List<TextPainter> painters;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (var i = 0; i < 7; i++) {
-      final progress = (tick + i * 0.15) % 1;
-      final x = (size.width * ((i * 59) % 100) / 100) +
-          sin(progress * pi * 2 + i) * 12;
-      final y = size.height + 40 - (size.height + 80) * progress; // Float upwards
-
-      final tp = painters[i % painters.length];
-
-      canvas.save();
-      canvas.translate(x, y);
-      canvas.rotate(progress * pi * 0.35);
-      tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant MovementParticlesPainter oldDelegate) =>
-      oldDelegate.tick != tick;
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }

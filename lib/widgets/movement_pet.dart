@@ -147,10 +147,6 @@ class _PetAnimationBody extends StatelessWidget {
             clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
-              // Background particles based on mood
-              if (mood == MovementPetMood.bored) ..._buildZzz(size, tick),
-              if (mood == MovementPetMood.happy) ..._buildStars(size, tick),
-
               // Sitting bench if bored
               if (mood == MovementPetMood.bored)
                 Positioned(

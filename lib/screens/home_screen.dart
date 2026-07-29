@@ -1503,35 +1503,7 @@ class _SwipeBackground extends StatelessWidget {
           end: Alignment.bottomCenter,
         ),
       ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: RepaintBoundary(
-              child: Opacity(
-                opacity: (1.0 - pagePosition).clamp(0.0, 1.0),
-                child: AnimatedBubbles(isActive: pagePosition < 0.99),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: RepaintBoundary(
-              child: Opacity(
-                opacity: (1.0 - (pagePosition - 1.0).abs()).clamp(0.0, 1.0),
-                child: NutritionParticles(isActive: pagePosition > 0.01 && pagePosition < 1.99),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: RepaintBoundary(
-              child: Opacity(
-                opacity: (pagePosition - 1.0).clamp(0.0, 1.0),
-                child: MovementParticles(isActive: pagePosition > 1.01),
-              ),
-            ),
-          ),
-          child,
-        ],
-      ),
+      child: child,
     );
   }
 }

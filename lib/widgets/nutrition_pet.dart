@@ -64,7 +64,6 @@ class _NutritionPetState extends State<NutritionPet>
                   clipBehavior: Clip.none,
                   alignment: Alignment.center,
                   children: [
-                    ..._buildParticles(widget.size, tick),
                     Container(
                       width: widget.size,
                       height: widget.size,

@@ -104,8 +104,6 @@ class _PetBody extends StatelessWidget {
                 clipBehavior: Clip.none,
                 alignment: Alignment.center,
                 children: [
-                  if (mood == HydrationPetMood.happy)
-                    ..._HappyBubbles.build(size: size, tick: tick),
                   CustomPaint(
                     size: Size.square(size),
                     painter: _DropPainter(color: dropColor),

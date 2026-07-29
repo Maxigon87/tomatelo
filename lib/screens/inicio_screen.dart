@@ -285,14 +285,7 @@ class _InicioScreenState extends State<InicioScreen> {
             end: Alignment.bottomCenter,
           ),
         ),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: _useWaterTheme
-                  ? const AnimatedBubbles(isActive: true)
-                  : const NutritionParticles(isActive: true),
-            ),
-            SafeArea(
+        child: SafeArea(
               child: Center(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
@@ -356,8 +349,9 @@ class _InicioScreenState extends State<InicioScreen> {
                             ),
                             const SizedBox(height: 12),
                             if (_isLoginMode) ...[
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -433,10 +427,8 @@ class _InicioScreenState extends State<InicioScreen> {
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
+          ),
+        );
   }
 }
 

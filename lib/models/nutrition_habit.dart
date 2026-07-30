@@ -14,6 +14,8 @@ class NutritionHabit {
   final String emoji;
   final IconData icon;
   final int defaultGoal;
+
+  String get name => '$emoji $label';
 }
 
 const nutritionHabits = [
@@ -46,3 +48,5 @@ const nutritionHabits = [
     defaultGoal: 1,
   ),
 ];
+
+const defaultNutritionHabits = nutritionHabits;

@@ -9,7 +9,6 @@ import 'package:tomatelo/screens/home_screen.dart';
 import 'package:tomatelo/screens/inicio_screen.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:home_widget/home_widget.dart';
 
@@ -39,7 +38,7 @@ void main() async {
 
   if (!needsSetup) {
     await NotificationService.instance.scheduleHydrationReminder(
-      minutes: userData!.reminderMinutes,
+      minutes: userData.reminderMinutes,
     );
   }
 

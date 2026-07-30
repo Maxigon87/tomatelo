@@ -29,9 +29,9 @@ class NotificationService {
     await AwesomeNotifications().initialize(null, [
       NotificationChannel(
         channelKey: _channelKey,
-        channelName: 'Recordatorios de hidratación',
-        channelDescription: 'Notificaciones para tomar agua',
-        defaultColor: const Color(0xFF4FA3FF),
+        channelName: 'Recordatorios de Mascotas Tomatelo',
+        channelDescription: 'Notificaciones de tus guardianes de salud',
+        defaultColor: const Color(0xFF00BCD4),
         importance: NotificationImportance.High,
         playSound: true,
         soundSource: _waterDropSound,
@@ -47,26 +47,37 @@ class NotificationService {
     });
   }
 
-  Future<void> scheduleHydrationReminder({required int minutes}) async {
+  Future<void> scheduleHydrationReminder({
+    required int minutes,
+    String? customPetMessage,
+  }) async {
     await cancelHydrationReminder();
 
     final safeMinutes = _sanitizeMinutes(minutes);
-    final messages = <String>[
-      'Tu botella te extraña 💧 ¡Hora de un sorbito feliz!',
-      'Mini pausa acuática 🚰 Tu yo del futuro te lo agradecerá.',
-      '¡Ping de hidratación! 😄 Un vaso y seguimos brillando.',
-      'Agüita time 🥤 Un brindis por esa energía bonita.',
-      'Recordatorio amistoso: tu cuerpo pide agua con cariño 💙',
+    final defaultMessages = <String>[
+      '💧 ¡A Gota-Bot le vendría bien un poco de agua! Haz clic para registrar.',
+      '🌱 ¡Broto quiere nutrirse hoy! Registra tus alimentos saludables.',
+      '🏃 ¡A Zorro Veloz le vendrían bien unos pasos! ¡Salgamos a caminar!',
+      '💧 ¡Hora de un sorbo! Mantén a tus mascotas felices y con energía.',
     ];
+
+    final bodyMessage = customPetMessage ?? defaultMessages[(safeMinutes ~/ 15) % defaultMessages.length];
 
     await AwesomeNotifications().createNotification(
       content: NotificationContent(
         id: _reminderId,
         channelKey: _channelKey,
-        title: 'Tomatelo te cuida',
-        body: messages[(safeMinutes ~/ 15) % messages.length],
+        title: '🐾 Tomatelo Guardianes',
+        body: bodyMessage,
         notificationLayout: NotificationLayout.Default,
       ),
+      actionButtons: [
+        NotificationActionButton(
+          key: 'ADD_WATER_FAST',
+          label: '[ + Registro Rápido ]',
+          actionType: ActionType.Default,
+        ),
+      ],
       schedule: NotificationInterval(
         interval: Duration(minutes: safeMinutes),
         repeats: true,
@@ -95,13 +106,13 @@ class NotificationService {
       computedMinutes ?? fallbackMinutes,
     );
     final reason = switch (hydrationAdvice?.status) {
-      HydrationStatus.critical => 'Recordatorio intensivo por atraso alto.',
+      HydrationStatus.critical => 'Gota-Bot está preocupado, recordatorio urgente.',
       HydrationStatus.behind =>
-        'Recordatorio frecuente para recuperar el ritmo.',
+        'Recupera el ritmo para poner a tus mascotas en racha.',
       HydrationStatus.slightlyBehind =>
         'Recordatorio moderado para mantener constancia.',
-      HydrationStatus.onTrack => 'Vas bien, mantenemos un ritmo saludable.',
-      null => 'Recordatorio base de hidratación.',
+      HydrationStatus.onTrack => 'Tus mascotas están óptimas y felices.',
+      null => 'Recordatorio base de guardianes.',
     };
 
     return ReminderSuggestion(

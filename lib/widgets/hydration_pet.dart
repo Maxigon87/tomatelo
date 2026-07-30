@@ -1,14 +1,18 @@
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
-
-enum HydrationPetMood { happy, normal, tired }
+import 'package:tomatelo/models/pet_state.dart';
 
 class HydrationPet extends StatefulWidget {
-  const HydrationPet({super.key, required this.mood, this.size = 122});
+  const HydrationPet({
+    super.key,
+    required this.mood,
+    this.size = 120,
+    this.progress = 1.0,
+  });
 
-  final HydrationPetMood mood;
+  final PetMood mood;
   final double size;
+  final double progress;
 
   @override
   State<HydrationPet> createState() => _HydrationPetState();
@@ -23,7 +27,7 @@ class _HydrationPetState extends State<HydrationPet>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1900),
+      duration: const Duration(milliseconds: 2000),
     )..repeat(reverse: true);
   }
 
@@ -36,79 +40,100 @@ class _HydrationPetState extends State<HydrationPet>
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 500),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      transitionBuilder: (child, animation) {
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.94, end: 1).animate(animation),
-            child: child,
-          ),
-        );
-      },
-      child: _PetBody(
+      duration: const Duration(milliseconds: 400),
+      transitionBuilder: (child, animation) => ScaleTransition(
+        scale: Tween<double>(begin: 0.92, end: 1.0).animate(animation),
+        child: FadeTransition(opacity: animation, child: child),
+      ),
+      child: _GotaBotBody(
         key: ValueKey(widget.mood),
         mood: widget.mood,
         size: widget.size,
+        progress: widget.progress,
         animation: _controller,
       ),
     );
   }
 }
 
-class _PetBody extends StatelessWidget {
-  const _PetBody({
+class _GotaBotBody extends StatelessWidget {
+  const _GotaBotBody({
     super.key,
     required this.mood,
     required this.size,
+    required this.progress,
     required this.animation,
   });
 
-  final HydrationPetMood mood;
+  final PetMood mood;
   final double size;
+  final double progress;
   final Animation<double> animation;
 
   @override
   Widget build(BuildContext context) {
-    final dropColor = switch (mood) {
-      HydrationPetMood.happy => const Color(0xFF38BDF8),
-      HydrationPetMood.normal => const Color(0xFF60A5FA),
-      HydrationPetMood.tired => const Color(0xFF94A3B8),
+    // Dynamic crystalline colors based on mood
+    final baseColors = switch (mood) {
+      PetMood.optimal => [const Color(0xFF00E5FF), const Color(0xFF00838F)],
+      PetMood.alert => [const Color(0xFF80DEEA), const Color(0xFF0097A7)],
+      PetMood.critical => [const Color(0xFFB0BEC5), const Color(0xFF37474F)],
     };
+
+    final scaleFactor = 0.88 + (progress.clamp(0.0, 1.0) * 0.22);
 
     return AnimatedBuilder(
       animation: animation,
       builder: (context, child) {
         final tick = animation.value;
-        final yOffset = switch (mood) {
-          HydrationPetMood.happy => math.sin(tick * math.pi * 2) * 4,
-          HydrationPetMood.normal => math.sin(tick * math.pi * 2) * 2.4,
-          HydrationPetMood.tired => math.sin(tick * math.pi * 2) * 1.3 + 2,
-        };
-        final tilt = switch (mood) {
-          HydrationPetMood.happy => math.sin(tick * math.pi * 2) * 0.02,
-          HydrationPetMood.normal => math.sin(tick * math.pi * 2) * 0.01,
-          HydrationPetMood.tired => -0.09,
+        final floatY = switch (mood) {
+          PetMood.optimal => math.sin(tick * math.pi * 2) * 5,
+          PetMood.alert => math.sin(tick * math.pi * 2) * 3,
+          PetMood.critical => math.sin(tick * math.pi * 2) * 1.5 + 2,
         };
 
-        return Transform.translate(
-          offset: Offset(0, yOffset),
-          child: Transform.rotate(
-            angle: tilt,
+        return Transform.scale(
+          scale: scaleFactor,
+          child: Transform.translate(
+            offset: Offset(0, floatY),
             child: SizedBox(
               width: size,
-              height: size + 26,
+              height: size + 20,
               child: Stack(
                 clipBehavior: Clip.none,
                 alignment: Alignment.center,
                 children: [
+                  // Outer Aquatic Glow Ring
+                  if (mood == PetMood.optimal)
+                    Container(
+                      width: size * 1.05,
+                      height: size * 1.05,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF00E5FF).withValues(alpha: 0.45),
+                            blurRadius: 24,
+                            spreadRadius: 4,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Floating Water Bubbles (for optimal state)
+                  if (mood == PetMood.optimal)
+                    ..._GotaBotBubbles.build(size: size, tick: tick),
+
+                  // Robot Water Drop Body
                   CustomPaint(
                     size: Size.square(size),
-                    painter: _DropPainter(color: dropColor),
+                    painter: _GotaBotPainter(colors: baseColors, mood: mood),
                   ),
-                  _PetFace(mood: mood),
+
+                  // Digital Visor Screen (Gota-Bot Face)
+                  Positioned(
+                    top: size * 0.32,
+                    child: _DigitalVisor(mood: mood, size: size),
+                  ),
                 ],
               ),
             ),
@@ -119,217 +144,182 @@ class _PetBody extends StatelessWidget {
   }
 }
 
-class _PetFace extends StatelessWidget {
-  const _PetFace({required this.mood});
+class _GotaBotPainter extends CustomPainter {
+  _GotaBotPainter({required this.colors, required this.mood});
 
-  final HydrationPetMood mood;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: const Alignment(0, 0.35),
-      child: SizedBox(
-        width: 62,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _Eye(mood: mood),
-                _Eye(mood: mood),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _Mouth(mood: mood),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Eye extends StatelessWidget {
-  const _Eye({required this.mood});
-
-  final HydrationPetMood mood;
-
-  @override
-  Widget build(BuildContext context) {
-    if (mood == HydrationPetMood.happy) {
-      return const _Arc(stroke: 3, width: 18, height: 11);
-    }
-    if (mood == HydrationPetMood.tired) {
-      return Container(
-        width: 16,
-        height: 7,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(20),
-        ),
-      );
-    }
-
-    return Container(
-      width: 10,
-      height: 10,
-      decoration: const BoxDecoration(
-        color: Colors.black87,
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-}
-
-class _Mouth extends StatelessWidget {
-  const _Mouth({required this.mood});
-
-  final HydrationPetMood mood;
-
-  @override
-  Widget build(BuildContext context) {
-    return switch (mood) {
-      HydrationPetMood.happy => const RotatedBox(
-        quarterTurns: 2,
-        child: _Arc(stroke: 3, width: 24, height: 12),
-      ),
-      HydrationPetMood.normal => Container(
-        width: 16,
-        height: 4,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.75),
-          borderRadius: BorderRadius.circular(20),
-        ),
-      ),
-      HydrationPetMood.tired => const _Arc(stroke: 3, width: 20, height: 8),
-    };
-  }
-}
-
-class _Arc extends StatelessWidget {
-  const _Arc({required this.stroke, required this.width, required this.height});
-
-  final double stroke;
-  final double width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(size: Size(width, height), painter: _ArcPainter(stroke));
-  }
-}
-
-class _ArcPainter extends CustomPainter {
-  _ArcPainter(this.stroke);
-  final double stroke;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.85)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round;
-
-    final rect = Rect.fromLTWH(0, 0, size.width, size.height * 2);
-    canvas.drawArc(rect, math.pi, math.pi, false, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ArcPainter oldDelegate) => false;
-}
-
-class _DropPainter extends CustomPainter {
-  _DropPainter({required this.color});
-
-  final Color color;
+  final List<Color> colors;
+  final PetMood mood;
 
   @override
   void paint(Canvas canvas, Size size) {
     final path = Path()
       ..moveTo(size.width / 2, 0)
       ..cubicTo(
-        size.width * 0.86,
-        size.height * 0.2,
-        size.width * 0.95,
-        size.height * 0.62,
+        size.width * 0.88,
+        size.height * 0.22,
+        size.width * 0.98,
+        size.height * 0.65,
         size.width / 2,
         size.height,
       )
       ..cubicTo(
-        size.width * 0.05,
-        size.height * 0.62,
-        size.width * 0.14,
-        size.height * 0.2,
+        size.width * 0.02,
+        size.height * 0.65,
+        size.width * 0.12,
+        size.height * 0.22,
         size.width / 2,
         0,
       )
       ..close();
 
-    final fill = Paint()
+    final fillPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [color.withValues(alpha: 0.92), color.withValues(alpha: 0.65)],
+        colors: colors,
       ).createShader(Offset.zero & size);
 
-    canvas.drawPath(path, fill);
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.28)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.1,
-    );
+    canvas.drawPath(path, fillPaint);
 
-    final glare = Path()
-      ..moveTo(size.width * 0.43, size.height * 0.24)
+    // Tech Glare & Glass Highlight Border
+    final borderPaint = Paint()
+      ..color = Colors.white.withValues(alpha: mood == PetMood.critical ? 0.2 : 0.45)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    canvas.drawPath(path, borderPaint);
+
+    // Glossy curved glare
+    final glarePath = Path()
+      ..moveTo(size.width * 0.40, size.height * 0.18)
       ..quadraticBezierTo(
-        size.width * 0.26,
-        size.height * 0.34,
-        size.width * 0.32,
-        size.height * 0.55,
+        size.width * 0.22,
+        size.height * 0.32,
+        size.width * 0.28,
+        size.height * 0.52,
       );
 
     canvas.drawPath(
-      glare,
+      glarePath,
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.35)
+        ..color = Colors.white.withValues(alpha: 0.5)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 4
+        ..strokeWidth = 4.5
         ..strokeCap = StrokeCap.round,
     );
   }
 
   @override
-  bool shouldRepaint(covariant _DropPainter oldDelegate) =>
-      oldDelegate.color != color;
+  bool shouldRepaint(covariant _GotaBotPainter oldDelegate) => true;
 }
 
-class _HappyBubbles {
+class _DigitalVisor extends StatelessWidget {
+  const _DigitalVisor({required this.mood, required this.size});
+
+  final PetMood mood;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final visorWidth = size * 0.58;
+    final visorHeight = size * 0.28;
+
+    return Container(
+      width: visorWidth,
+      height: visorHeight,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A192F),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: mood == PetMood.optimal
+              ? const Color(0xFF00E5FF)
+              : mood == PetMood.alert
+                  ? const Color(0xFFFFC107)
+                  : const Color(0xFFE53935),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (mood == PetMood.optimal
+                    ? const Color(0xFF00E5FF)
+                    : mood == PetMood.alert
+                        ? const Color(0xFFFFC107)
+                        : const Color(0xFFE53935))
+                .withValues(alpha: 0.35),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Center(
+        child: _VisorExpression(mood: mood),
+      ),
+    );
+  }
+}
+
+class _VisorExpression extends StatelessWidget {
+  const _VisorExpression({required this.mood});
+
+  final PetMood mood;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (mood) {
+      case PetMood.optimal:
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: const [
+            Text('◠', style: TextStyle(color: Color(0xFF00E5FF), fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('◠', style: TextStyle(color: Color(0xFF00E5FF), fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        );
+      case PetMood.alert:
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: const [
+            Text('•', style: TextStyle(color: Color(0xFFFFC107), fontSize: 20)),
+            Text('•', style: TextStyle(color: Color(0xFFFFC107), fontSize: 20)),
+          ],
+        );
+      case PetMood.critical:
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: const [
+            Text('x', style: TextStyle(color: Color(0xFFE53935), fontSize: 16, fontWeight: FontWeight.bold)),
+            Text('x', style: TextStyle(color: Color(0xFFE53935), fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        );
+    }
+  }
+}
+
+class _GotaBotBubbles {
   static List<Widget> build({required double size, required double tick}) {
-    final particles = <({double x, double y, double s})>[
-      (x: -size * 0.27, y: -size * 0.25, s: 9),
-      (x: size * 0.24, y: -size * 0.34, s: 7),
-      (x: size * 0.03, y: -size * 0.45, s: 5),
+    final particles = [
+      (x: -size * 0.3, y: -size * 0.15, size: 8.0),
+      (x: size * 0.28, y: -size * 0.25, size: 10.0),
+      (x: size * 0.04, y: -size * 0.38, size: 6.0),
     ];
 
     return particles.asMap().entries.map((entry) {
       final i = entry.key;
-      final bubble = entry.value;
-      final pulse = (math.sin((tick * math.pi * 2) + i) + 1) / 2;
+      final p = entry.value;
+      final offset = math.sin((tick * math.pi * 2) + i) * 6;
       return Positioned(
-        left: size / 2 + bubble.x,
-        top: size / 2 + bubble.y - pulse * 6,
-        child: Opacity(
-          opacity: 0.35 + pulse * 0.5,
-          child: Container(
-            width: bubble.s,
-            height: bubble.s,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.9),
-            ),
+        left: size / 2 + p.x,
+        top: size / 2 + p.y - offset,
+        child: Container(
+          width: p.size,
+          height: p.size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFFE0F7FA).withValues(alpha: 0.8),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.6),
+                blurRadius: 6,
+              ),
+            ],
           ),
         ),
       );

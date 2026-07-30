@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 
 class DropletAnimation extends StatefulWidget {
@@ -60,7 +58,6 @@ class _DropletAnimationState extends State<DropletAnimation>
         builder: (context, child) {
           final t = Curves.easeInOut.transform(_controller.value);
           final dropY = -100 + (240 * t);
-          final splashOpacity = (1 - (t - 0.6).clamp(0, 1) * 2).clamp(0, 1);
 
           return Stack(
             alignment: Alignment.topCenter,

@@ -3,22 +3,18 @@ import 'package:flutter/material.dart';
 class MovementTrackerCard extends StatefulWidget {
   final int currentMinutes;
   final int goalMinutes;
-  final int currentSteps;
   final VoidCallback? onAddMinutes;
+  final VoidCallback? onAdd15Minutes;
   final VoidCallback? onRemoveMinutes;
-  final VoidCallback? onAddSteps;
-  final VoidCallback? onRemoveSteps;
   final bool showManualControls;
 
   const MovementTrackerCard({
     super.key,
     required this.currentMinutes,
     required this.goalMinutes,
-    required this.currentSteps,
     this.onAddMinutes,
+    this.onAdd15Minutes,
     this.onRemoveMinutes,
-    this.onAddSteps,
-    this.onRemoveSteps,
     this.showManualControls = true,
   });
 
@@ -28,8 +24,8 @@ class MovementTrackerCard extends StatefulWidget {
 
 class _MovementTrackerCardState extends State<MovementTrackerCard> {
   bool _isAddMinPressed = false;
+  bool _isAdd15MinPressed = false;
   bool _isRemoveMinPressed = false;
-  bool _isAddStepsPressed = false;
 
   double get _progress {
     if (widget.goalMinutes <= 0) return 0.0;
@@ -39,13 +35,13 @@ class _MovementTrackerCardState extends State<MovementTrackerCard> {
   String get _motivationalText {
     final double pct = _progress * 100;
     if (pct >= 100) {
-      return "¡Meta alcanzada! Tu mente y cuerpo te lo agradecen. 🌟";
+      return "¡Meta alcanzada! Tu cuerpo y tu mente te lo agradecen. 🌟";
     } else if (pct >= 80) {
-      return "¡Casi lo logras! Unos minutos más de movimiento. 🏁";
+      return "¡Casi lo logras! Unos minutos más de actividad. 🏁";
     } else if (pct >= 40) {
       return "¡Vas a excelente ritmo! Ya se siente la energía. 🏃‍♂️";
     } else {
-      return "¡Buen inicio! Cada paso cuenta para despertar el cuerpo. 👣";
+      return "¡Buen inicio! Cada minuto activo cuenta para tu salud. ⏱️";
     }
   }
 
@@ -103,7 +99,7 @@ class _MovementTrackerCardState extends State<MovementTrackerCard> {
                             Text(
                               '${widget.currentMinutes} / ${widget.goalMinutes} min',
                               style: const TextStyle(
-                                fontSize: 40,
+                                fontSize: 38,
                                 fontWeight: FontWeight.w800,
                                 color: Colors.white,
                                 height: 1.1,
@@ -111,10 +107,10 @@ class _MovementTrackerCardState extends State<MovementTrackerCard> {
                               ),
                             ),
                             const SizedBox(height: 6),
-                            Text(
-                              '${widget.currentSteps} pasos hoy',
-                              style: const TextStyle(
-                                fontSize: 20,
+                            const Text(
+                              'Tiempo activo hoy ⏱️',
+                              style: TextStyle(
+                                fontSize: 16,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white70,
                                 height: 1.1,
@@ -163,15 +159,17 @@ class _MovementTrackerCardState extends State<MovementTrackerCard> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            _ActionButton(
-                              label: '+500 👣',
-                              isPressed: _isAddStepsPressed,
-                              onPressed: widget.onAddSteps,
-                              onPressStateChanged: (isPressed) => setState(
-                                () => _isAddStepsPressed = isPressed,
+                            if (widget.onAdd15Minutes != null) ...[
+                              const SizedBox(height: 8),
+                              _ActionButton(
+                                label: '+15m ⏱️',
+                                isPressed: _isAdd15MinPressed,
+                                onPressed: widget.onAdd15Minutes,
+                                onPressStateChanged: (isPressed) => setState(
+                                  () => _isAdd15MinPressed = isPressed,
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                     ],

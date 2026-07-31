@@ -1267,7 +1267,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Sincroniza tus pasos automáticos',
+                      'Sincroniza tu tiempo de actividad',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,
@@ -1277,7 +1277,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Para que no tengas que activar un cronómetro cada vez que caminas, nos conectamos de forma segura con Conexión de Salud (Google Health Connect). Así, tu teléfono contará tus minutos activos en segundo plano de manera ultra eficiente.',
+                      'Para que no tengas que activar un cronómetro cada vez que caminas o te mueves, nos conectamos de forma segura con Conexión de Salud (Google Health Connect). Así, tu teléfono medirá tu tiempo activo en segundo plano de manera ultra eficiente.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.9),
@@ -1324,10 +1324,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               MovementTrackerCard(
                 currentMinutes: _movementMinutesToday,
                 goalMinutes: _movementGoal,
-                currentSteps: _movementStepsToday,
                 onAddMinutes: () => _incrementMovementMinutes(5),
+                onAdd15Minutes: () => _incrementMovementMinutes(15),
                 onRemoveMinutes: () => _decrementMovementMinutes(5),
-                onAddSteps: () => _incrementMovementSteps(500),
                 showManualControls: true,
               ),
               const SizedBox(height: 18),
@@ -1342,8 +1341,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     _StatusChip(label: 'Racha actual: $streak días 🔥'),
                     const SizedBox(height: 16),
                     Text(
-                      'Distancia estimada: ${(_movementStepsToday * 0.0007).toStringAsFixed(2)} km\n'
-                      'Calorías activas estimadas: ${(_movementMinutesToday * 5.5).round()} kcal',
+                      'Tiempo activo hoy: $_movementMinutesToday min\n'
+                      'Meta diaria: $_movementGoal min\n'
+                      'Calorías activas estimadas: ${(_movementMinutesToday * 4.5).round()} kcal',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.95),
                         fontWeight: FontWeight.w600,

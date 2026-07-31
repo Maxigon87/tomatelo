@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +24,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _storageService = StorageService();
+  StreamSubscription? _firestoreSub;
 
   int _currentNavIndex = 0;
 
@@ -49,10 +51,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeScreen();
+    _listenToCloudChanges();
+  }
+
+  void _listenToCloudChanges() {
+    _firestoreSub?.cancel();
+    _firestoreSub = _storageService.listenToUserDoc(() {
+      if (mounted) {
+        _loadData();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _firestoreSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

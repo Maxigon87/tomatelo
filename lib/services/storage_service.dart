@@ -45,6 +45,21 @@ class StorageService {
     }
   }
 
+  bool get isCloudConnected => FirebaseAuth.instance.currentUser != null;
+
+  StreamSubscription<DocumentSnapshot>? listenToUserDoc(Function() onDataChanged) {
+    final doc = _userDoc;
+    if (doc == null) return null;
+    return doc.snapshots().listen((snapshot) async {
+      if (snapshot.exists && snapshot.data() != null) {
+        await _applyFirestoreData(snapshot.data() as Map<String, dynamic>);
+        onDataChanged();
+      }
+    }, onError: (e) {
+      print('Error listening to user document: $e');
+    });
+  }
+
   Future<void> syncFromFirestore() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -54,78 +69,86 @@ class StorageService {
       final data = doc.data();
       if (data == null) return;
 
+      await _applyFirestoreData(data);
+    } catch (e) {
+      print('Error syncing from Firestore: $e');
+    }
+  }
+
+  Future<void> _applyFirestoreData(Map<String, dynamic> data) async {
+    try {
       final prefs = await SharedPreferences.getInstance();
 
-      if (data.containsKey(_weightKey)) {
+      if (data.containsKey(_weightKey) && data[_weightKey] != null) {
         await prefs.setDouble(_weightKey, (data[_weightKey] as num).toDouble());
       }
-      if (data.containsKey(_heightKey)) {
+      if (data.containsKey(_heightKey) && data[_heightKey] != null) {
         await prefs.setDouble(_heightKey, (data[_heightKey] as num).toDouble());
       }
-      if (data.containsKey(_reminderMinutesKey)) {
-        await prefs.setInt(_reminderMinutesKey, data[_reminderMinutesKey] as int);
+      if (data.containsKey(_reminderMinutesKey) && data[_reminderMinutesKey] != null) {
+        await prefs.setInt(_reminderMinutesKey, (data[_reminderMinutesKey] as num).toInt());
       }
-      if (data.containsKey(_dailyGoalKey)) {
-        await prefs.setInt(_dailyGoalKey, data[_dailyGoalKey] as int);
+      if (data.containsKey(_dailyGoalKey) && data[_dailyGoalKey] != null) {
+        await prefs.setInt(_dailyGoalKey, (data[_dailyGoalKey] as num).toInt());
       }
-      if (data.containsKey(_glassesTodayKey)) {
-        await prefs.setInt(_glassesTodayKey, data[_glassesTodayKey] as int);
+      if (data.containsKey(_glassesTodayKey) && data[_glassesTodayKey] != null) {
+        await prefs.setInt(_glassesTodayKey, (data[_glassesTodayKey] as num).toInt());
       }
-      if (data.containsKey(_glassesYesterdayKey)) {
-        await prefs.setInt(_glassesYesterdayKey, data[_glassesYesterdayKey] as int);
+      if (data.containsKey(_glassesYesterdayKey) && data[_glassesYesterdayKey] != null) {
+        await prefs.setInt(_glassesYesterdayKey, (data[_glassesYesterdayKey] as num).toInt());
       }
-      if (data.containsKey(_lastDrinkAtKey)) {
+      if (data.containsKey(_lastDrinkAtKey) && data[_lastDrinkAtKey] != null) {
         await prefs.setString(_lastDrinkAtKey, data[_lastDrinkAtKey] as String);
       }
-      if (data.containsKey(_lastResetKey)) {
+      if (data.containsKey(_lastResetKey) && data[_lastResetKey] != null) {
         await prefs.setString(_lastResetKey, data[_lastResetKey] as String);
       }
 
-      if (data.containsKey(_weeklyDataKey)) {
-        final list = List<int>.from((data[_weeklyDataKey] as List).map((e) => e as int));
+      if (data.containsKey(_weeklyDataKey) && data[_weeklyDataKey] is List) {
+        final list = List<int>.from((data[_weeklyDataKey] as List).map((e) => (e as num).toInt()));
         await prefs.setStringList(_weeklyDataKey, list.map((e) => e.toString()).toList());
       }
-      if (data.containsKey(_nutritionTodayKey)) {
-        final map = Map<String, int>.from(data[_nutritionTodayKey] as Map);
+      if (data.containsKey(_nutritionTodayKey) && data[_nutritionTodayKey] is Map) {
+        final map = (data[_nutritionTodayKey] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
         await prefs.setString(_nutritionTodayKey, jsonEncode(map));
       }
-      if (data.containsKey(_nutritionGoalsKey)) {
-        final map = Map<String, int>.from(data[_nutritionGoalsKey] as Map);
+      if (data.containsKey(_nutritionGoalsKey) && data[_nutritionGoalsKey] is Map) {
+        final map = (data[_nutritionGoalsKey] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
         await prefs.setString(_nutritionGoalsKey, jsonEncode(map));
       }
-      if (data.containsKey(_nutritionYesterdayKey)) {
-        final map = Map<String, int>.from(data[_nutritionYesterdayKey] as Map);
+      if (data.containsKey(_nutritionYesterdayKey) && data[_nutritionYesterdayKey] is Map) {
+        final map = (data[_nutritionYesterdayKey] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
         await prefs.setString(_nutritionYesterdayKey, jsonEncode(map));
       }
-      if (data.containsKey(_nutritionWeeklyKey)) {
-        final list = List<int>.from((data[_nutritionWeeklyKey] as List).map((e) => e as int));
+      if (data.containsKey(_nutritionWeeklyKey) && data[_nutritionWeeklyKey] is List) {
+        final list = List<int>.from((data[_nutritionWeeklyKey] as List).map((e) => (e as num).toInt()));
         await prefs.setStringList(_nutritionWeeklyKey, list.map((e) => e.toString()).toList());
       }
-      if (data.containsKey(_movementGoalKey)) {
-        await prefs.setInt(_movementGoalKey, data[_movementGoalKey] as int);
+      if (data.containsKey(_movementGoalKey) && data[_movementGoalKey] != null) {
+        await prefs.setInt(_movementGoalKey, (data[_movementGoalKey] as num).toInt());
       }
-      if (data.containsKey(_movementMinutesTodayKey)) {
-        await prefs.setInt(_movementMinutesTodayKey, data[_movementMinutesTodayKey] as int);
+      if (data.containsKey(_movementMinutesTodayKey) && data[_movementMinutesTodayKey] != null) {
+        await prefs.setInt(_movementMinutesTodayKey, (data[_movementMinutesTodayKey] as num).toInt());
       }
-      if (data.containsKey(_movementStepsTodayKey)) {
-        await prefs.setInt(_movementStepsTodayKey, data[_movementStepsTodayKey] as int);
+      if (data.containsKey(_movementStepsTodayKey) && data[_movementStepsTodayKey] != null) {
+        await prefs.setInt(_movementStepsTodayKey, (data[_movementStepsTodayKey] as num).toInt());
       }
-      if (data.containsKey(_movementYesterdayKey)) {
-        await prefs.setInt(_movementYesterdayKey, data[_movementYesterdayKey] as int);
+      if (data.containsKey(_movementYesterdayKey) && data[_movementYesterdayKey] != null) {
+        await prefs.setInt(_movementYesterdayKey, (data[_movementYesterdayKey] as num).toInt());
       }
-      if (data.containsKey(_movementWeeklyKey)) {
-        final list = List<int>.from((data[_movementWeeklyKey] as List).map((e) => e as int));
+      if (data.containsKey(_movementWeeklyKey) && data[_movementWeeklyKey] is List) {
+        final list = List<int>.from((data[_movementWeeklyKey] as List).map((e) => (e as num).toInt()));
         await prefs.setStringList(_movementWeeklyKey, list.map((e) => e.toString()).toList());
       }
-      if (data.containsKey(_movementHistoryKey)) {
-        final list = List<String>.from(data[_movementHistoryKey] as List);
+      if (data.containsKey(_movementHistoryKey) && data[_movementHistoryKey] is List) {
+        final list = List<String>.from((data[_movementHistoryKey] as List).map((e) => e.toString()));
         await prefs.setStringList(_movementHistoryKey, list);
       }
-      if (data.containsKey(_healthConnectLinkedKey)) {
+      if (data.containsKey(_healthConnectLinkedKey) && data[_healthConnectLinkedKey] != null) {
         await prefs.setBool(_healthConnectLinkedKey, data[_healthConnectLinkedKey] as bool);
       }
     } catch (e) {
-      print('Error syncing from Firestore: $e');
+      print('Error applying Firestore data: $e');
     }
   }
 

@@ -232,9 +232,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 children: [
                   ListTile(
-                    leading: const Icon(Icons.person_rounded, color: AppTheme.hydrationPrimary),
-                    title: Text(currentUser?.email ?? 'Usuario Tomatelo'),
-                    subtitle: Text(currentUser != null ? 'Sincronizado con Firebase Cloud' : 'Modo Local'),
+                    leading: Icon(
+                      currentUser != null ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                      color: currentUser != null ? Colors.green : Colors.grey,
+                    ),
+                    title: Text(currentUser?.email ?? 'Usuario Modo Local'),
+                    subtitle: Text(
+                      currentUser != null
+                          ? 'Sincronizado en tiempo real con Firebase Cloud ☁️'
+                          : 'Inicia sesión para sincronizar tu progreso',
+                    ),
+                    trailing: currentUser != null
+                        ? IconButton(
+                            icon: const Icon(Icons.sync_rounded, color: AppTheme.hydrationPrimary),
+                            tooltip: 'Sincronizar con la nube',
+                            onPressed: () async {
+                              final storage = StorageService();
+                              await storage.syncFromFirestore();
+                              widget.onDataChanged();
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('¡Datos sincronizados con Firebase Cloud! ☁️'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            },
+                          )
+                        : null,
                   ),
                   const Divider(),
                   ListTile(

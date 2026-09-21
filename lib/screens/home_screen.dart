@@ -106,6 +106,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _pagePosition.value = (_pageController.page ?? 0).clamp(0, 2).toDouble();
   }
 
+  void _onSectionSelected(int index) {
+    if (!_pageController.hasClients) return;
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOutCubic,
+    );
+  }
+
   void _startAdvisorRefresh() {
     Future<void>.delayed(_hydrationRefresh, () {
       if (!mounted) return;
@@ -502,6 +511,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     child: _SectionPill(
                       pagePosition: position,
                       activeColor: _activeAccentColor,
+                      onSectionSelected: _onSectionSelected,
                     ),
                   ),
                 ),
@@ -1509,10 +1519,15 @@ class _SwipeBackground extends StatelessWidget {
 }
 
 class _SectionPill extends StatelessWidget {
-  const _SectionPill({required this.pagePosition, required this.activeColor});
+  const _SectionPill({
+    required this.pagePosition,
+    required this.activeColor,
+    required this.onSectionSelected,
+  });
 
   final double pagePosition;
   final Color activeColor;
+  final ValueChanged<int> onSectionSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -1533,11 +1548,26 @@ class _SectionPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _PillItem(label: '💧 Agua', selected: pagePosition < 0.5, activeColor: activeColor),
+            _PillItem(
+              label: '💧 Agua',
+              selected: pagePosition < 0.5,
+              activeColor: activeColor,
+              onTap: () => onSectionSelected(0),
+            ),
             const SizedBox(width: 6),
-            _PillItem(label: '🍎 Nutrición', selected: pagePosition >= 0.5 && pagePosition < 1.5, activeColor: activeColor),
+            _PillItem(
+              label: '🍎 Nutrición',
+              selected: pagePosition >= 0.5 && pagePosition < 1.5,
+              activeColor: activeColor,
+              onTap: () => onSectionSelected(1),
+            ),
             const SizedBox(width: 6),
-            _PillItem(label: '🏃 Actividad', selected: pagePosition >= 1.5, activeColor: activeColor),
+            _PillItem(
+              label: '🏃 Actividad',
+              selected: pagePosition >= 1.5,
+              activeColor: activeColor,
+              onTap: () => onSectionSelected(2),
+            ),
           ],
         ),
       ),
@@ -1546,27 +1576,40 @@ class _SectionPill extends StatelessWidget {
 }
 
 class _PillItem extends StatelessWidget {
-  const _PillItem({required this.label, required this.selected, required this.activeColor});
+  const _PillItem({
+    required this.label,
+    required this.selected,
+    required this.activeColor,
+    required this.onTap,
+  });
 
   final String label;
   final bool selected;
   final Color activeColor;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: selected ? Colors.white : Colors.transparent,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: selected ? activeColor : Colors.black54,
-          fontWeight: FontWeight.w800,
-          fontSize: 12,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? activeColor : Colors.black54,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
         ),
       ),
     );

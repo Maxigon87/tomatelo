@@ -9,19 +9,33 @@ import 'package:tomatelo/screens/home_screen.dart';
 import 'package:tomatelo/screens/inicio_screen.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:home_widget/home_widget.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  if (!kIsWeb && Platform.isIOS) {
-    await HomeWidget.setAppGroupId('HomeWidgetPreferences');
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('Firebase initializeApp error: $e');
   }
-  await NotificationService.instance.initialize();
+
+  if (!kIsWeb && Platform.isIOS) {
+    try {
+      await HomeWidget.setAppGroupId('HomeWidgetPreferences');
+    } catch (e) {
+      debugPrint('HomeWidget error: $e');
+    }
+  }
+
+  try {
+    await NotificationService.instance.initialize();
+  } catch (e) {
+    debugPrint('NotificationService error: $e');
+  }
+
   final storageService = StorageService();
 
   final currentUser = FirebaseAuth.instance.currentUser;
@@ -37,10 +51,14 @@ void main() async {
 
   final needsSetup = userData == null || dailyGoal == 0;
 
-  if (!needsSetup) {
-    await NotificationService.instance.scheduleHydrationReminder(
-      minutes: userData!.reminderMinutes,
-    );
+  if (!needsSetup && userData != null) {
+    try {
+      await NotificationService.instance.scheduleHydrationReminder(
+        minutes: userData.reminderMinutes,
+      );
+    } catch (e) {
+      debugPrint('Schedule reminder error: $e');
+    }
   }
 
   runApp(TomateloApp(showSetupScreen: needsSetup));

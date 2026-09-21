@@ -23,6 +23,7 @@ import 'package:tomatelo/widgets/nutrition_tracker_card.dart';
 import 'package:tomatelo/widgets/water_tracker_card.dart';
 import 'package:tomatelo/widgets/movement_tracker_card.dart';
 import 'package:tomatelo/widgets/weekly_chart.dart';
+import 'package:tomatelo/widgets/water_radial_gauge.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -400,12 +401,82 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         return Scaffold(
           extendBodyBehindAppBar: true,
           appBar: AppBar(
-            backgroundColor: Colors.transparent,
+            backgroundColor: AppTheme.background.withValues(alpha: 0.85),
             elevation: 0,
             scrolledUnderElevation: 0,
+            automaticallyImplyLeading: false,
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceLow,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.local_fire_department_rounded,
+                        color: AppTheme.primaryAqua,
+                        size: 18,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        '5 días',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primaryAqua,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 1,
+                  height: 16,
+                  color: AppTheme.surfaceHighest,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  position < 0.5
+                      ? 'Agua'
+                      : position < 1.5
+                          ? 'Nutrición'
+                          : 'Actividad',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.onSurface,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ],
+            ),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.calendar_today_rounded, size: 20),
+                color: AppTheme.onSurfaceVariant,
+                onPressed: () {},
+              ),
+              Container(
+                width: 30,
+                height: 30,
+                decoration: const BoxDecoration(
+                  color: AppTheme.primaryAqua,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.person_rounded,
+                  size: 18,
+                  color: Color(0xFF00354A),
+                ),
+              ),
+              const SizedBox(width: 4),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded),
+                icon: const Icon(Icons.more_vert_rounded, color: AppTheme.onSurfaceVariant),
                 onSelected: (value) {
                   if (value == 'info') {
                     _showFriendlyMessage(
@@ -487,6 +558,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                 ],
               ),
+              const SizedBox(width: 8),
             ],
           ),
           body: _SwipeBackground(
@@ -501,19 +573,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     RepaintBoundary(child: _buildNutritionPage(context)),
                     RepaintBoundary(child: _buildMovementPage(context)),
                   ],
-                ),
-                Positioned(
-                  top: MediaQuery.of(context).padding.top,
-                  left: 0,
-                  right: 0,
-                  height: kToolbarHeight,
-                  child: Center(
-                    child: _SectionPill(
-                      pagePosition: position,
-                      activeColor: _activeAccentColor,
-                      onSectionSelected: _onSectionSelected,
-                    ),
-                  ),
                 ),
                 DropletAnimation(trigger: _dropTrigger),
                 Align(
@@ -542,112 +601,140 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildWaterPage(BuildContext context) {
+    final currentMl = _mlFromGlasses(_glassesToday).round();
+    final targetMl = (_dailyGoal * AppConstants.waterStep).round();
+
     return SingleChildScrollView(
       child: Padding(
         padding: EdgeInsets.only(
           top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
-          left: 24,
-          right: 24,
-          bottom: 24,
+          left: 16,
+          right: 16,
+          bottom: 28,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const SizedBox(height: 6),
-            RepaintBoundary(child: HydrationPet(mood: _petMood, size: 112)),
-            const SizedBox(height: 24),
-            WaterTrackerCard(
-              currentGlasses: _glassesToday,
-              goalGlasses: _dailyGoal,
-              onAddWater: _incrementGlasses,
-              onRemoveWater: _decrementGlasses,
+            // Dynamic Category Switcher Capsule
+            _SectionPill(
+              pagePosition: _pagePosition.value,
+              activeColor: _activeAccentColor,
+              onSectionSelected: _onSectionSelected,
             ),
-            const SizedBox(height: 12),
-            if (_hydrationAdvice != null)
-              Text(
-                _feedbackMessage,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            if (_reminderSuggestion != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                'Siguiente sugerencia: ${_reminderSuggestion!.minutesUntilNextReminder} min (${_formatTime(_reminderSuggestion!.suggestedAt)})',
-                style: Theme.of(context).textTheme.bodySmall,
-                textAlign: TextAlign.center,
-              ),
-            ],
-            const SizedBox(height: 8),
-            if (_dailyGoal > 0)
-              Text(
-                'Meta: $_dailyGoal vasos · Límite sugerido: $_upperHydrationLimit',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            const SizedBox(height: 18),
-            if (_hydrationAdvice != null) ...[
-              _GradientInfoCard(
-                colors: const [Color(0xFF56CCF2), Color(0xFF2F80ED)],
-                shadowColor: const Color(0xFF2F80ED),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _CardTitle(icon: Icons.auto_awesome, title: 'Asistente inteligente'),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Actual: ${_mlFromGlasses(_glassesToday).round()} ml · Ideal: ${_hydrationAdvice!.idealMl.round()} ml',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontWeight: FontWeight.w500),
-                    ),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: _percent(_mlFromGlasses(_glassesToday), _dailyGoal * AppConstants.waterStep),
-                      minHeight: 8,
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
-                      backgroundColor: Colors.black.withValues(alpha: 0.15),
-                    ),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: _percent(_hydrationAdvice!.idealMl, _dailyGoal * AppConstants.waterStep),
-                      minHeight: 8,
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white.withValues(alpha: 0.6),
-                      backgroundColor: Colors.transparent,
-                    ),
-                    const SizedBox(height: 16),
-                    _StatusChip(label: 'Estado: ${_hydrationAdvice!.status.value}'),
-                    const SizedBox(height: 10),
-                    Text(_hydrationAdvice!.message, style: TextStyle(color: Colors.white.withValues(alpha: 0.95))),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Tomá ahora: ${_hydrationAdvice!.recommendedMlNow.round()} ml · cada ${_hydrationAdvice!.recommendedIntervalMinutes} min',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700, color: Colors.white),
-                    ),
-                    if (_hydrationAdvice!.unsafeToCatchUp) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        _hydrationAdvice!.warning ?? '',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFFFF8A80), fontWeight: FontWeight.w700),
-                      ),
-                    ],
+            const SizedBox(height: 14),
+            // Hero Hydration Card with Bioluminescent Glow & Gotita & Gauge
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppTheme.surfaceContainer,
+                    AppTheme.surfaceLow,
                   ],
                 ),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-            ],
-            _GradientInfoCard(
-              colors: const [Color(0xFF56CCF2), Color(0xFF2F80ED)],
-              shadowColor: const Color(0xFF2F80ED),
-              child: _YesterdayWater(glassesYesterday: _glassesYesterday),
+              child: Column(
+                children: [
+                  RepaintBoundary(
+                    child: HydrationPet(
+                      mood: _petMood,
+                      size: 140,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  WaterRadialGauge(
+                    currentMl: currentMl,
+                    targetMl: targetMl,
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            RepaintBoundary(
-              child: WeeklyChart(
-                data: _weeklyData,
-                gradientColors: const [Color(0xFF56CCF2), Color(0xFF2F80ED)],
-                shadowColor: const Color(0xFF2F80ED),
+            const SizedBox(height: 14),
+            // Quick-Log Pill Action Zone
+            QuickLogPillCard(
+              onAddWaterMl: (ml) {
+                final count = (ml / AppConstants.waterStep).round().clamp(1, 4);
+                for (var i = 0; i < count; i++) {
+                  _incrementGlasses();
+                }
+              },
+              onUndo: _decrementGlasses,
+              weeklyData: _weeklyData,
+            ),
+            const SizedBox(height: 14),
+            // Teaser Card
+            InkWell(
+              onTap: () => _onSectionSelected(1),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceLow,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.06),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppTheme.secondaryCoral.withValues(alpha: 0.20),
+                      ),
+                      child: const Icon(
+                        Icons.spa_rounded,
+                        color: AppTheme.secondaryCoral,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '¿Buscas variedad de sabor?',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.onSurface,
+                            ),
+                          ),
+                          Text(
+                            'Suma agua celular con cítricos e infusiones',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: AppTheme.primaryAqua,
+                      size: 18,
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -661,22 +748,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       child: Padding(
         padding: EdgeInsets.only(
           top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
-          left: 24,
-          right: 24,
-          bottom: 24,
+          left: 16,
+          right: 16,
+          bottom: 28,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const SizedBox(height: 6),
+            // Dynamic Category Switcher Capsule
+            _SectionPill(
+              pagePosition: _pagePosition.value,
+              activeColor: _activeAccentColor,
+              onSectionSelected: _onSectionSelected,
+            ),
+            const SizedBox(height: 14),
             RepaintBoundary(
               child: NutritionPet(
                 mood: _nutritionPetMood,
                 progress: _nutritionProgress,
-                size: 112,
+                size: 140,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             NutritionTrackerCard(
               today: _nutritionToday,
               goals: _nutritionGoals,
@@ -684,26 +777,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               totalGoal: _nutritionGoalTotal,
               onAddHabit: _incrementNutritionHabit,
               onOpenGoals: _showNutritionGoalsSheet,
-            ),
-            const SizedBox(height: 18),
-            _GradientInfoCard(
-              colors: const [Color(0xFF8BC34A), Color(0xFFFFB74D)],
-              shadowColor: const Color(0xFFFFB74D),
-              child: _buildNutritionAssistant(context),
-            ),
-            const SizedBox(height: 16),
-            _GradientInfoCard(
-              colors: const [Color(0xFFAED581), Color(0xFFFFCC80)],
-              shadowColor: const Color(0xFFFFB74D),
-              child: _buildNutritionYesterday(context),
-            ),
-            const SizedBox(height: 16),
-            RepaintBoundary(
-              child: WeeklyChart(
-                data: _nutritionWeeklyData,
-                gradientColors: const [Color(0xFF8BC34A), Color(0xFF7CB342)],
-                shadowColor: const Color(0xFF7CB342),
-              ),
+              yesterdayData: _nutritionYesterday,
+              weeklyData: _nutritionWeeklyData,
             ),
           ],
         ),
@@ -1531,45 +1606,54 @@ class _SectionPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceLow,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 1,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _PillItem(
-              label: '💧 Agua',
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _PillItem(
+              label: 'Agua Pura',
+              icon: Icons.water_drop_rounded,
               selected: pagePosition < 0.5,
-              activeColor: activeColor,
+              activeColor: AppTheme.primaryAqua,
               onTap: () => onSectionSelected(0),
             ),
-            const SizedBox(width: 6),
-            _PillItem(
-              label: '🍎 Nutrición',
+          ),
+          Expanded(
+            child: _PillItem(
+              label: 'Frutas & Tés',
+              icon: Icons.eco_rounded,
               selected: pagePosition >= 0.5 && pagePosition < 1.5,
-              activeColor: activeColor,
+              activeColor: AppTheme.secondaryCoral,
               onTap: () => onSectionSelected(1),
             ),
-            const SizedBox(width: 6),
-            _PillItem(
-              label: '🏃 Actividad',
+          ),
+          Expanded(
+            child: _PillItem(
+              label: 'Actividad',
+              icon: Icons.directions_walk_rounded,
               selected: pagePosition >= 1.5,
-              activeColor: activeColor,
+              activeColor: AppTheme.tertiaryMint,
               onTap: () => onSectionSelected(2),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1578,12 +1662,14 @@ class _SectionPill extends StatelessWidget {
 class _PillItem extends StatelessWidget {
   const _PillItem({
     required this.label,
+    required this.icon,
     required this.selected,
     required this.activeColor,
     required this.onTap,
   });
 
   final String label;
+  final IconData icon;
   final bool selected;
   final Color activeColor;
   final VoidCallback onTap;
@@ -1597,18 +1683,37 @@ class _PillItem extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: selected ? Colors.white : Colors.transparent,
+            color: selected ? AppTheme.surfaceBright : Colors.transparent,
             borderRadius: BorderRadius.circular(999),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: activeColor.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                    ),
+                  ]
+                : [],
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? activeColor : Colors.black54,
-              fontWeight: FontWeight.w800,
-              fontSize: 12,
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: selected ? activeColor : AppTheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? activeColor : AppTheme.onSurfaceVariant,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ),
         ),
       ),

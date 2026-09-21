@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tomatelo/models/nutrition_habit.dart';
+import 'package:tomatelo/theme/app_theme.dart';
 
 class NutritionTrackerCard extends StatelessWidget {
   const NutritionTrackerCard({
@@ -10,6 +11,8 @@ class NutritionTrackerCard extends StatelessWidget {
     required this.totalGoal,
     required this.onAddHabit,
     required this.onOpenGoals,
+    this.yesterdayData,
+    this.weeklyData,
   });
 
   final Map<String, int> today;
@@ -18,6 +21,8 @@ class NutritionTrackerCard extends StatelessWidget {
   final int totalGoal;
   final ValueChanged<NutritionHabit> onAddHabit;
   final VoidCallback onOpenGoals;
+  final Map<String, int>? yesterdayData;
+  final List<int>? weeklyData;
 
   double get _progress {
     if (totalGoal <= 0) return 0;
@@ -33,201 +38,514 @@ class NutritionTrackerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFA8E063), Color(0xFFFFB74D)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFFB74D).withValues(alpha: 0.32),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: Stack(
-          children: [
-            Positioned(
-              top: -44,
-              right: -34,
-              child: Container(
-                width: 168,
-                height: 168,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.15),
-                ),
-              ),
+    return Column(
+      children: [
+        // TARJETA PRINCIPAL DE HÁBITOS DIARIOS
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 1,
             ),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '$completed / $totalGoal hábitos',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 34,
-                              fontWeight: FontWeight.w800,
-                              height: 1.1,
-                              letterSpacing: -0.8,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _message,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.95),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      IconButton.filled(
-                        onPressed: onOpenGoals,
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.9),
-                          foregroundColor: const Color(0xFF689F38),
+                      Text(
+                        '$completed / $totalGoal hábitos',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.onSurface,
                         ),
-                        icon: const Icon(Icons.tune_rounded),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _message,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  Container(
-                    height: 12,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(8),
+                  InkWell(
+                    onTap: onOpenGoals,
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: AppTheme.surfaceHighest,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.tune_rounded,
+                        size: 18,
+                        color: AppTheme.onSurfaceVariant,
+                      ),
                     ),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return Align(
-                          alignment: Alignment.centerLeft,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 700),
-                            curve: Curves.easeOutCubic,
-                            width: constraints.maxWidth * _progress,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.white.withValues(alpha: 0.62),
-                                  blurRadius: 10,
-                                  spreadRadius: 1,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: nutritionHabits.map((habit) {
-                      final count = today[habit.id] ?? 0;
-                      final goal = goals[habit.id] ?? habit.defaultGoal;
-                      return _HabitButton(
-                        habit: habit,
-                        count: count,
-                        goal: goal,
-                        onTap: () => onAddHabit(habit),
-                      );
-                    }).toList(),
                   ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+              // Progress Bar
+              Container(
+                width: double.infinity,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceLowest,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: _progress,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          AppTheme.tertiaryMint,
+                          AppTheme.tertiaryMintBright,
+                          AppTheme.primaryAqua,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.tertiaryMint.withValues(alpha: 0.4),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Quick Action Chips Grid (4 Habits)
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                childAspectRatio: 2.3,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                children: nutritionHabits.map((habit) {
+                  final val = today[habit.id] ?? 0;
+                  final goal = goals[habit.id] ?? habit.defaultGoal;
+                  final isDone = val >= goal;
+
+                  final color = switch (habit.id) {
+                    'fruit' => AppTheme.secondaryCoral,
+                    'yogurt' => AppTheme.primaryAqua,
+                    'tea' => AppTheme.tertiaryMint,
+                    _ => const Color(0xFFFBBF24),
+                  };
+
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => onAddHabit(habit),
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDone
+                              ? AppTheme.surfaceHighest
+                              : AppTheme.surfaceLow,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isDone
+                                ? color.withValues(alpha: 0.4)
+                                : Colors.white.withValues(alpha: 0.05),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: color.withValues(alpha: 0.20),
+                              ),
+                              child: Icon(habit.icon, size: 18, color: color),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '+1 ${habit.label}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.onSurface,
+                                    ),
+                                  ),
+                                  Text(
+                                    '$val/$goal',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppTheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              isDone
+                                  ? Icons.check_circle_rounded
+                                  : Icons.add_circle_outline_rounded,
+                              size: 18,
+                              color: isDone ? color : AppTheme.onSurfaceVariant,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ),
-      ),
+        const SizedBox(height: 14),
+        // TARJETA ASISTENTE INTELIGENTE
+        _IntelligentAssistantCard(completed: completed, totalGoal: totalGoal),
+        const SizedBox(height: 14),
+        // TARJETA "AYER"
+        _YesterdayHabitsCard(yesterdayData: yesterdayData, goals: goals),
+        const SizedBox(height: 14),
+        // TARJETA "TU SEMANA"
+        _WeeklyHabitsCard(weeklyData: weeklyData),
+      ],
     );
   }
 }
 
-class _HabitButton extends StatefulWidget {
-  const _HabitButton({
-    required this.habit,
-    required this.count,
-    required this.goal,
-    required this.onTap,
+class _IntelligentAssistantCard extends StatelessWidget {
+  final int completed;
+  final int totalGoal;
+
+  const _IntelligentAssistantCard({
+    required this.completed,
+    required this.totalGoal,
   });
-
-  final NutritionHabit habit;
-  final int count;
-  final int goal;
-  final VoidCallback onTap;
-
-  @override
-  State<_HabitButton> createState() => _HabitButtonState();
-}
-
-class _HabitButtonState extends State<_HabitButton> {
-  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedScale(
-      scale: _pressed ? 0.94 : 1,
-      duration: const Duration(milliseconds: 150),
-      curve: Curves.easeOutBack,
-      child: Material(
-        color: Colors.white.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(18),
-        elevation: _pressed ? 1 : 6,
-        shadowColor: Colors.black26,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTapDown: (_) => setState(() => _pressed = true),
-          onTapUp: (_) => setState(() => _pressed = false),
-          onTapCancel: () => setState(() => _pressed = false),
-          onTap: widget.onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(widget.habit.emoji, style: const TextStyle(fontSize: 20)),
-                const SizedBox(width: 7),
-                Text(
-                  '+1 ${widget.habit.label}',
+    final pct = totalGoal <= 0 ? 0 : ((completed / totalGoal) * 100).toInt();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(
+                    Icons.auto_awesome_rounded,
+                    color: AppTheme.tertiaryMint,
+                    size: 18,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Asistente inteligente',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceHigh,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$pct% de equilibrio',
                   style: const TextStyle(
-                    color: Color(0xFF558B2F),
-                    fontWeight: FontWeight.w800,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.tertiaryMint,
                   ),
                 ),
-                const SizedBox(width: 7),
-                Text(
-                  '${widget.count}/${widget.goal}',
-                  style: TextStyle(
-                    color: const Color(0xFF558B2F).withValues(alpha: 0.72),
-                    fontWeight: FontWeight.w700,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceLow,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('🍎', style: TextStyle(fontSize: 18)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Hace rato no registras fruta hoy. Una fruta puede sumar frescura y vitalidad a tu tarde.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: AppTheme.onSurface,
+                      height: 1.3,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _YesterdayHabitsCard extends StatelessWidget {
+  final Map<String, int>? yesterdayData;
+  final Map<String, int> goals;
+
+  const _YesterdayHabitsCard({
+    required this.yesterdayData,
+    required this.goals,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final yData = yesterdayData ?? {};
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 1,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.history_rounded,
+                color: AppTheme.onSurfaceVariant,
+                size: 18,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Ayer',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 3.2,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            children: nutritionHabits.map((habit) {
+              final val = yData[habit.id] ?? 0;
+              final goal = goals[habit.id] ?? habit.defaultGoal;
+              final isDone = val >= goal;
+
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceLow,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isDone
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      size: 16,
+                      color: isDone ? AppTheme.tertiaryMint : AppTheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '${habit.emoji} ${habit.label} $val/$goal',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isDone ? FontWeight.w600 : FontWeight.w400,
+                          color: isDone ? AppTheme.onSurface : AppTheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeeklyHabitsCard extends StatelessWidget {
+  final List<int>? weeklyData;
+
+  const _WeeklyHabitsCard({required this.weeklyData});
+
+  @override
+  Widget build(BuildContext context) {
+    const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+    final safeData = (weeklyData != null && weeklyData!.length == 7)
+        ? weeklyData!
+        : List.filled(7, 0);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.bar_chart_rounded,
+                color: AppTheme.tertiaryMint,
+                size: 18,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Tu semana',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.onSurface,
+                ),
+              ),
+              Spacer(),
+              Text(
+                'Ritmo constante',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.tertiaryMint,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: List.generate(7, (index) {
+              final val = safeData[index];
+              final ratio = (val / 5).clamp(0.1, 1.0);
+              final isToday = index == (DateTime.now().weekday - 1);
+
+              return Column(
+                children: [
+                  Container(
+                    width: 14,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceHighest,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    alignment: Alignment.bottomCenter,
+                    child: FractionallySizedBox(
+                      heightFactor: ratio,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isToday
+                              ? AppTheme.tertiaryMint
+                              : AppTheme.secondaryCoral,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    days[index],
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
+                      color: isToday
+                          ? AppTheme.tertiaryMint
+                          : AppTheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ],
       ),
     );
   }

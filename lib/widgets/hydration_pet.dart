@@ -1,117 +1,286 @@
+import 'dart:async';
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
+import 'package:tomatelo/theme/app_theme.dart';
 
 enum HydrationPetMood { happy, normal, tired }
 
 class HydrationPet extends StatefulWidget {
-  const HydrationPet({super.key, required this.mood, this.size = 122});
+  const HydrationPet({
+    super.key,
+    required this.mood,
+    this.size = 140,
+    this.speechMessage,
+  });
 
   final HydrationPetMood mood;
   final double size;
+  final String? speechMessage;
 
   @override
   State<HydrationPet> createState() => _HydrationPetState();
 }
 
 class _HydrationPetState extends State<HydrationPet>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+    with TickerProviderStateMixin {
+  late final AnimationController _floatController;
+  late final AnimationController _squishController;
+  bool _overrideTired = false;
+  bool _isBlinking = false;
+  Timer? _blinkTimer;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _floatController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1900),
+      duration: const Duration(milliseconds: 3200),
     )..repeat(reverse: true);
+
+    _squishController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+      lowerBound: 0.0,
+      upperBound: 0.25,
+    );
+
+    _startBlinkTimer();
+  }
+
+  void _startBlinkTimer() {
+    _blinkTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (mounted) {
+        setState(() {
+          _isBlinking = true;
+        });
+        Future.delayed(const Duration(milliseconds: 180), () {
+          if (mounted) {
+            setState(() {
+              _isBlinking = false;
+            });
+          }
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _blinkTimer?.cancel();
+    _floatController.dispose();
+    _squishController.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 500),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      transitionBuilder: (child, animation) {
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.94, end: 1).animate(animation),
-            child: child,
-          ),
-        );
-      },
-      child: _PetBody(
-        key: ValueKey(widget.mood),
-        mood: widget.mood,
-        size: widget.size,
-        animation: _controller,
-      ),
-    );
+  void _handleTap() {
+    _squishController.forward().then((_) {
+      _squishController.reverse();
+    });
+    setState(() {
+      _overrideTired = !_overrideTired;
+    });
   }
-}
-
-class _PetBody extends StatelessWidget {
-  const _PetBody({
-    super.key,
-    required this.mood,
-    required this.size,
-    required this.animation,
-  });
-
-  final HydrationPetMood mood;
-  final double size;
-  final Animation<double> animation;
 
   @override
   Widget build(BuildContext context) {
-    final dropColor = switch (mood) {
-      HydrationPetMood.happy => const Color(0xFF38BDF8),
-      HydrationPetMood.normal => const Color(0xFF60A5FA),
-      HydrationPetMood.tired => const Color(0xFF94A3B8),
+    final effectiveMood = _overrideTired
+        ? HydrationPetMood.tired
+        : widget.mood;
+
+    final defaultSpeech = switch (effectiveMood) {
+      HydrationPetMood.happy => '¡Hidratado y feliz! ✨',
+      HydrationPetMood.normal => '¡Buen ritmo de agua! 💧',
+      HydrationPetMood.tired => '¡Gotita tiene sed! 🏜️',
     };
 
     return AnimatedBuilder(
-      animation: animation,
+      animation: Listenable.merge([_floatController, _squishController]),
       builder: (context, child) {
-        final tick = animation.value;
-        final yOffset = switch (mood) {
-          HydrationPetMood.happy => math.sin(tick * math.pi * 2) * 4,
-          HydrationPetMood.normal => math.sin(tick * math.pi * 2) * 2.4,
-          HydrationPetMood.tired => math.sin(tick * math.pi * 2) * 1.3 + 2,
-        };
-        final tilt = switch (mood) {
-          HydrationPetMood.happy => math.sin(tick * math.pi * 2) * 0.02,
-          HydrationPetMood.normal => math.sin(tick * math.pi * 2) * 0.01,
-          HydrationPetMood.tired => -0.09,
+        final tick = _floatController.value;
+        final floatOffset = switch (effectiveMood) {
+          HydrationPetMood.happy => math.sin(tick * math.pi * 2) * 6.0,
+          HydrationPetMood.normal => math.sin(tick * math.pi * 2) * 3.5,
+          HydrationPetMood.tired => math.sin(tick * math.pi * 2) * 2.0 + 4,
         };
 
+        final sparkleOpacity = (math.sin(tick * math.pi * 2) * 0.35 + 0.65).clamp(0.0, 1.0);
+        final squish = _squishController.value;
+        final scaleX = 1.0 + squish;
+        final scaleY = 1.0 - squish;
+
         return Transform.translate(
-          offset: Offset(0, yOffset),
-          child: Transform.rotate(
-            angle: tilt,
-            child: SizedBox(
-              width: size,
-              height: size + 26,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  CustomPaint(
-                    size: Size.square(size),
-                    painter: _DropPainter(color: dropColor),
+          offset: Offset(0, floatOffset),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: _handleTap,
+                child: Transform.scale(
+                  scaleX: scaleX,
+                  scaleY: scaleY,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Ambient Bioluminescent Water Glow behind Gotita
+                      Container(
+                        width: widget.size * (1.25 + tick * 0.08),
+                        height: widget.size * (1.25 + tick * 0.08),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: effectiveMood == HydrationPetMood.tired
+                              ? Colors.orange.withValues(alpha: 0.10)
+                              : AppTheme.primaryAqua.withValues(alpha: 0.25),
+                          boxShadow: [
+                            BoxShadow(
+                              color: effectiveMood == HydrationPetMood.tired
+                                  ? Colors.orange.withValues(alpha: 0.15)
+                                  : AppTheme.primaryAqua.withValues(alpha: 0.30 + tick * 0.10),
+                              blurRadius: 36 + (tick * 12),
+                              spreadRadius: 8,
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Floating Sparkles Particle Layer
+                      if (effectiveMood != HydrationPetMood.tired) ...[
+                        Positioned(
+                          top: -12 - (tick * 4),
+                          left: -16,
+                          child: Opacity(
+                            opacity: sparkleOpacity,
+                            child: const Icon(
+                              Icons.auto_awesome,
+                              size: 16,
+                              color: AppTheme.primaryAquaDim,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: -6,
+                          right: -14 - (tick * 3),
+                          child: Opacity(
+                            opacity: (1.0 - sparkleOpacity).clamp(0.2, 1.0),
+                            child: const Icon(
+                              Icons.auto_awesome_rounded,
+                              size: 18,
+                              color: AppTheme.primaryAqua,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 24,
+                          left: -20 - (tick * 4),
+                          child: Opacity(
+                            opacity: sparkleOpacity,
+                            child: const Icon(
+                              Icons.star_rounded,
+                              size: 14,
+                              color: AppTheme.tertiaryMintBright,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 30 + (tick * 3),
+                          right: -18,
+                          child: Opacity(
+                            opacity: (1.0 - sparkleOpacity).clamp(0.2, 1.0),
+                            child: const Icon(
+                              Icons.auto_awesome,
+                              size: 15,
+                              color: AppTheme.primaryAquaDim,
+                            ),
+                          ),
+                        ),
+                      ],
+                      // Vector Body
+                      CustomPaint(
+                        size: Size(widget.size, widget.size),
+                        painter: _GotitaPainter(
+                          mood: effectiveMood,
+                          isBlinking: _isBlinking,
+                        ),
+                      ),
+                    ],
                   ),
-                  _PetFace(mood: mood),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              // Dynamic Mood Speech Badge Pill
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceHighest.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: effectiveMood == HydrationPetMood.tired
+                        ? Colors.orange.withValues(alpha: 0.4)
+                        : AppTheme.primaryAqua.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  widget.speechMessage ?? defaultSpeech,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: effectiveMood == HydrationPetMood.tired
+                        ? Colors.orangeAccent
+                        : AppTheme.primaryAqua,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // State Toggle Pill (Mascota Interactive Button)
+              InkWell(
+                onTap: _handleTap,
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceHighest,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.autorenew_rounded,
+                        size: 14,
+                        color: AppTheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _overrideTired
+                            ? 'Alternar a estado feliz'
+                            : 'Alternar a estado sediento',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -119,220 +288,286 @@ class _PetBody extends StatelessWidget {
   }
 }
 
-class _PetFace extends StatelessWidget {
-  const _PetFace({required this.mood});
 
+class _GotitaPainter extends CustomPainter {
   final HydrationPetMood mood;
+  final bool isBlinking;
 
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: const Alignment(0, 0.35),
-      child: SizedBox(
-        width: 62,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _Eye(mood: mood),
-                _Eye(mood: mood),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _Mouth(mood: mood),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Eye extends StatelessWidget {
-  const _Eye({required this.mood});
-
-  final HydrationPetMood mood;
-
-  @override
-  Widget build(BuildContext context) {
-    if (mood == HydrationPetMood.happy) {
-      return const _Arc(stroke: 3, width: 18, height: 11);
-    }
-    if (mood == HydrationPetMood.tired) {
-      return Container(
-        width: 16,
-        height: 7,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(20),
-        ),
-      );
-    }
-
-    return Container(
-      width: 10,
-      height: 10,
-      decoration: const BoxDecoration(
-        color: Colors.black87,
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-}
-
-class _Mouth extends StatelessWidget {
-  const _Mouth({required this.mood});
-
-  final HydrationPetMood mood;
-
-  @override
-  Widget build(BuildContext context) {
-    return switch (mood) {
-      HydrationPetMood.happy => const RotatedBox(
-        quarterTurns: 2,
-        child: _Arc(stroke: 3, width: 24, height: 12),
-      ),
-      HydrationPetMood.normal => Container(
-        width: 16,
-        height: 4,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.75),
-          borderRadius: BorderRadius.circular(20),
-        ),
-      ),
-      HydrationPetMood.tired => const _Arc(stroke: 3, width: 20, height: 8),
-    };
-  }
-}
-
-class _Arc extends StatelessWidget {
-  const _Arc({required this.stroke, required this.width, required this.height});
-
-  final double stroke;
-  final double width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(size: Size(width, height), painter: _ArcPainter(stroke));
-  }
-}
-
-class _ArcPainter extends CustomPainter {
-  _ArcPainter(this.stroke);
-  final double stroke;
+  _GotitaPainter({required this.mood, this.isBlinking = false});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.85)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round;
+    final width = size.width;
+    final height = size.height;
 
-    final rect = Rect.fromLTWH(0, 0, size.width, size.height * 2);
-    canvas.drawArc(rect, math.pi, math.pi, false, paint);
-  }
+    // --- Droplet Path ---
+    final path = Path();
+    path.moveTo(width * 0.5, height * 0.08);
+    path.cubicTo(
+      width * 0.5,
+      height * 0.08,
+      width * 0.78,
+      height * 0.46,
+      width * 0.78,
+      height * 0.66,
+    );
+    path.cubicTo(
+      width * 0.78,
+      height * 0.82,
+      width * 0.65,
+      height * 0.92,
+      width * 0.5,
+      height * 0.92,
+    );
+    path.cubicTo(
+      width * 0.35,
+      height * 0.92,
+      width * 0.22,
+      height * 0.82,
+      width * 0.22,
+      height * 0.66,
+    );
+    path.cubicTo(
+      width * 0.22,
+      height * 0.46,
+      width * 0.5,
+      height * 0.08,
+      width * 0.5,
+      height * 0.08,
+    );
+    path.close();
 
-  @override
-  bool shouldRepaint(covariant _ArcPainter oldDelegate) => false;
-}
-
-class _DropPainter extends CustomPainter {
-  _DropPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(size.width / 2, 0)
-      ..cubicTo(
-        size.width * 0.86,
-        size.height * 0.2,
-        size.width * 0.95,
-        size.height * 0.62,
-        size.width / 2,
-        size.height,
-      )
-      ..cubicTo(
-        size.width * 0.05,
-        size.height * 0.62,
-        size.width * 0.14,
-        size.height * 0.2,
-        size.width / 2,
-        0,
-      )
-      ..close();
-
-    final fill = Paint()
-      ..shader = LinearGradient(
+    final bodyGradient = switch (mood) {
+      HydrationPetMood.happy => const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [color.withValues(alpha: 0.92), color.withValues(alpha: 0.65)],
-      ).createShader(Offset.zero & size);
+        colors: [Color(0xFFA3E3FF), Color(0xFF38BDF8), Color(0xFF0284C7)],
+      ),
+      HydrationPetMood.normal => const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF93C5FD), Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+      ),
+      HydrationPetMood.tired => const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF94A3B8), Color(0xFF64748B), Color(0xFF334155)],
+      ),
+    };
 
-    canvas.drawPath(path, fill);
-    canvas.drawPath(
+    final bodyPaint = Paint()
+      ..shader = bodyGradient.createShader(Rect.fromLTWH(0, 0, width, height))
+      ..style = PaintingStyle.fill;
+
+    // Shadow
+    canvas.drawShadow(
       path,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.28)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.1,
+      AppTheme.primaryAqua.withValues(alpha: 0.5),
+      12.0,
+      true,
+    );
+    canvas.drawPath(path, bodyPaint);
+
+    // Inner Rim Specular Highlight
+    final highlightPath = Path();
+    highlightPath.moveTo(width * 0.5, height * 0.12);
+    highlightPath.cubicTo(
+      width * 0.5,
+      height * 0.12,
+      width * 0.73,
+      height * 0.47,
+      width * 0.73,
+      height * 0.64,
+    );
+    highlightPath.cubicTo(
+      width * 0.73,
+      height * 0.72,
+      width * 0.70,
+      height * 0.78,
+      width * 0.66,
+      height * 0.82,
     );
 
-    final glare = Path()
-      ..moveTo(size.width * 0.43, size.height * 0.24)
-      ..quadraticBezierTo(
-        size.width * 0.26,
-        size.height * 0.34,
-        size.width * 0.32,
-        size.height * 0.55,
+    final highlightPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawPath(highlightPath, highlightPaint);
+
+    // Dewdrop Crown Shine
+    final shinePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.85)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(width * 0.49, height * 0.24), 3.2, shinePaint);
+
+    // --- Face Details ---
+    if (mood == HydrationPetMood.happy || mood == HydrationPetMood.normal) {
+      // Rosy Blush Cheeks
+      final blushPaint = Paint()
+        ..color = const Color(0xFFFF97A3).withValues(alpha: 0.75)
+        ..style = PaintingStyle.fill;
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(width * 0.33, height * 0.68),
+          width: 10,
+          height: 6,
+        ),
+        blushPaint,
+      );
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(width * 0.67, height * 0.68),
+          width: 10,
+          height: 6,
+        ),
+        blushPaint,
       );
 
-    canvas.drawPath(
-      glare,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.35)
+      if (isBlinking) {
+        // Blinking closed eye arcs
+        final blinkPaint = Paint()
+          ..color = const Color(0xFF002114)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.8
+          ..strokeCap = StrokeCap.round;
+
+        final leftBlink = Path()
+          ..moveTo(width * 0.34, height * 0.61)
+          ..quadraticBezierTo(
+            width * 0.38,
+            height * 0.65,
+            width * 0.42,
+            height * 0.61,
+          );
+        final rightBlink = Path()
+          ..moveTo(width * 0.58, height * 0.61)
+          ..quadraticBezierTo(
+            width * 0.62,
+            height * 0.65,
+            width * 0.66,
+            height * 0.61,
+          );
+
+        canvas.drawPath(leftBlink, blinkPaint);
+        canvas.drawPath(rightBlink, blinkPaint);
+      } else {
+        // Sparkly Eyes
+        final eyePaint = Paint()
+          ..color = const Color(0xFF002114)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(Offset(width * 0.38, height * 0.61), 4.5, eyePaint);
+        canvas.drawCircle(Offset(width * 0.62, height * 0.61), 4.5, eyePaint);
+
+        // Eye White Reflections
+        final eyeReflect = Paint()..color = Colors.white;
+        canvas.drawCircle(Offset(width * 0.36, height * 0.59), 1.6, eyeReflect);
+        canvas.drawCircle(Offset(width * 0.60, height * 0.59), 1.6, eyeReflect);
+      }
+
+      // Curved Smile
+      final smilePath = Path();
+      smilePath.moveTo(width * 0.42, height * 0.67);
+      smilePath.quadraticBezierTo(
+        width * 0.50,
+        height * 0.75,
+        width * 0.58,
+        height * 0.67,
+      );
+
+      final smilePaint = Paint()
+        ..color = const Color(0xFF002114)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 4
-        ..strokeCap = StrokeCap.round,
-    );
+        ..strokeWidth = 2.8
+        ..strokeCap = StrokeCap.round;
+
+      canvas.drawPath(smilePath, smilePaint);
+    } else {
+      // Thirsty Sad Face
+      final eyePaint = Paint()
+        ..color = const Color(0xFFCBD5E1)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.6
+        ..strokeCap = StrokeCap.round;
+
+      final leftEye = Path()
+        ..moveTo(width * 0.33, height * 0.64)
+        ..quadraticBezierTo(
+          width * 0.38,
+          height * 0.59,
+          width * 0.43,
+          height * 0.63,
+        );
+      final rightEye = Path()
+        ..moveTo(width * 0.57, height * 0.63)
+        ..quadraticBezierTo(
+          width * 0.62,
+          height * 0.59,
+          width * 0.67,
+          height * 0.64,
+        );
+
+      canvas.drawPath(leftEye, eyePaint);
+      canvas.drawPath(rightEye, eyePaint);
+
+      // Sad Downturned Mouth
+      final sadMouth = Path()
+        ..moveTo(width * 0.44, height * 0.73)
+        ..quadraticBezierTo(
+          width * 0.50,
+          height * 0.68,
+          width * 0.56,
+          height * 0.73,
+        );
+
+      final mouthPaint = Paint()
+        ..color = const Color(0xFFCBD5E1)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4
+        ..strokeCap = StrokeCap.round;
+
+
+      canvas.drawPath(sadMouth, mouthPaint);
+
+      // Sweat Drip
+      final sweatPath = Path();
+      sweatPath.moveTo(width * 0.72, height * 0.44);
+      sweatPath.cubicTo(
+        width * 0.72,
+        height * 0.44,
+        width * 0.75,
+        height * 0.49,
+        width * 0.75,
+        height * 0.51,
+      );
+      sweatPath.cubicTo(
+        width * 0.75,
+        height * 0.53,
+        width * 0.73,
+        height * 0.54,
+        width * 0.71,
+        height * 0.54,
+      );
+      sweatPath.cubicTo(
+        width * 0.69,
+        height * 0.54,
+        width * 0.67,
+        height * 0.53,
+        width * 0.67,
+        height * 0.51,
+      );
+      sweatPath.close();
+
+      final sweatPaint = Paint()
+        ..color = const Color(0xFF7BD0FF)
+        ..style = PaintingStyle.fill;
+      canvas.drawPath(sweatPath, sweatPaint);
+    }
   }
 
   @override
-  bool shouldRepaint(covariant _DropPainter oldDelegate) =>
-      oldDelegate.color != color;
-}
-
-class _HappyBubbles {
-  static List<Widget> build({required double size, required double tick}) {
-    final particles = <({double x, double y, double s})>[
-      (x: -size * 0.27, y: -size * 0.25, s: 9),
-      (x: size * 0.24, y: -size * 0.34, s: 7),
-      (x: size * 0.03, y: -size * 0.45, s: 5),
-    ];
-
-    return particles.asMap().entries.map((entry) {
-      final i = entry.key;
-      final bubble = entry.value;
-      final pulse = (math.sin((tick * math.pi * 2) + i) + 1) / 2;
-      return Positioned(
-        left: size / 2 + bubble.x,
-        top: size / 2 + bubble.y - pulse * 6,
-        child: Opacity(
-          opacity: 0.35 + pulse * 0.5,
-          child: Container(
-            width: bubble.s,
-            height: bubble.s,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.9),
-            ),
-          ),
-        ),
-      );
-    }).toList();
+  bool shouldRepaint(covariant _GotitaPainter oldDelegate) {
+    return oldDelegate.mood != mood;
   }
 }

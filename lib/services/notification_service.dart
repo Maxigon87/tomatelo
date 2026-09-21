@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:tomatelo/models/hydration_advice.dart';
@@ -26,56 +28,74 @@ class NotificationService {
   static const int _maxReminderMinutes = 120;
 
   Future<void> initialize() async {
-    await AwesomeNotifications().initialize(null, [
-      NotificationChannel(
-        channelKey: _channelKey,
-        channelName: 'Recordatorios de hidratación',
-        channelDescription: 'Notificaciones para tomar agua',
-        defaultColor: const Color(0xFF4FA3FF),
-        importance: NotificationImportance.High,
-        playSound: true,
-        soundSource: _waterDropSound,
-      ),
-    ]);
+    try {
+      if (kIsWeb || Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+        await AwesomeNotifications().initialize(null, [
+          NotificationChannel(
+            channelKey: _channelKey,
+            channelName: 'Recordatorios de hidratación',
+            channelDescription: 'Notificaciones para tomar agua',
+            defaultColor: const Color(0xFF4FA3FF),
+            importance: NotificationImportance.High,
+            playSound: true,
+            soundSource: _waterDropSound,
+          ),
+        ]);
 
-    await AwesomeNotifications().isNotificationAllowed().then((
-      isAllowed,
-    ) async {
-      if (!isAllowed) {
-        await AwesomeNotifications().requestPermissionToSendNotifications();
+        await AwesomeNotifications().isNotificationAllowed().then((
+          isAllowed,
+        ) async {
+          if (!isAllowed) {
+            await AwesomeNotifications().requestPermissionToSendNotifications();
+          }
+        });
       }
-    });
+    } catch (e) {
+      debugPrint('NotificationService init bypassed on current platform: $e');
+    }
   }
 
   Future<void> scheduleHydrationReminder({required int minutes}) async {
-    await cancelHydrationReminder();
+    try {
+      if (kIsWeb || Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+        await cancelHydrationReminder();
 
-    final safeMinutes = _sanitizeMinutes(minutes);
-    final messages = <String>[
-      'Tu botella te extraña 💧 ¡Hora de un sorbito feliz!',
-      'Mini pausa acuática 🚰 Tu yo del futuro te lo agradecerá.',
-      '¡Ping de hidratación! 😄 Un vaso y seguimos brillando.',
-      'Agüita time 🥤 Un brindis por esa energía bonita.',
-      'Recordatorio amistoso: tu cuerpo pide agua con cariño 💙',
-    ];
+        final safeMinutes = _sanitizeMinutes(minutes);
+        final messages = <String>[
+          'Tu botella te extraña 💧 ¡Hora de un sorbito feliz!',
+          'Mini pausa acuática 🚰 Tu yo del futuro te lo agradecerá.',
+          '¡Ping de hidratación! 😄 Un vaso y seguimos brillando.',
+          'Agüita time 🥤 Un brindis por esa energía bonita.',
+          'Recordatorio amistoso: tu cuerpo pide agua con cariño 💙',
+        ];
 
-    await AwesomeNotifications().createNotification(
-      content: NotificationContent(
-        id: _reminderId,
-        channelKey: _channelKey,
-        title: 'Tomatelo te cuida',
-        body: messages[(safeMinutes ~/ 15) % messages.length],
-        notificationLayout: NotificationLayout.Default,
-      ),
-      schedule: NotificationInterval(
-        interval: Duration(minutes: safeMinutes),
-        repeats: true,
-      ),
-    );
+        await AwesomeNotifications().createNotification(
+          content: NotificationContent(
+            id: _reminderId,
+            channelKey: _channelKey,
+            title: 'Tomatelo te cuida',
+            body: messages[(safeMinutes ~/ 15) % messages.length],
+            notificationLayout: NotificationLayout.Default,
+          ),
+          schedule: NotificationInterval(
+            interval: Duration(minutes: safeMinutes),
+            repeats: true,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('scheduleHydrationReminder error: $e');
+    }
   }
 
   Future<void> cancelHydrationReminder() async {
-    await AwesomeNotifications().cancel(_reminderId);
+    try {
+      if (kIsWeb || Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+        await AwesomeNotifications().cancel(_reminderId);
+      }
+    } catch (e) {
+      debugPrint('cancelHydrationReminder error: $e');
+    }
   }
 
   ReminderSuggestion buildSuggestion({

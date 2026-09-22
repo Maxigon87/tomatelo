@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:tomatelo/theme/app_theme.dart';
 
@@ -22,8 +21,7 @@ class HydrationPet extends StatefulWidget {
 }
 
 class _HydrationPetState extends State<HydrationPet>
-    with TickerProviderStateMixin {
-  late final AnimationController _floatController;
+    with SingleTickerProviderStateMixin {
   late final AnimationController _squishController;
   bool _overrideTired = false;
   bool _isBlinking = false;
@@ -32,11 +30,6 @@ class _HydrationPetState extends State<HydrationPet>
   @override
   void initState() {
     super.initState();
-    _floatController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3200),
-    )..repeat(reverse: true);
-
     _squishController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 350),
@@ -67,7 +60,6 @@ class _HydrationPetState extends State<HydrationPet>
   @override
   void dispose() {
     _blinkTimer?.cancel();
-    _floatController.dispose();
     _squishController.dispose();
     super.dispose();
   }
@@ -94,105 +86,95 @@ class _HydrationPetState extends State<HydrationPet>
     };
 
     return AnimatedBuilder(
-      animation: Listenable.merge([_floatController, _squishController]),
+      animation: _squishController,
       builder: (context, child) {
-        final tick = _floatController.value;
-        final floatOffset = switch (effectiveMood) {
-          HydrationPetMood.happy => math.sin(tick * math.pi * 2) * 6.0,
-          HydrationPetMood.normal => math.sin(tick * math.pi * 2) * 3.5,
-          HydrationPetMood.tired => math.sin(tick * math.pi * 2) * 2.0 + 4,
-        };
-
-        final sparkleOpacity = (math.sin(tick * math.pi * 2) * 0.35 + 0.65).clamp(0.0, 1.0);
         final squish = _squishController.value;
         final scaleX = 1.0 + squish;
         final scaleY = 1.0 - squish;
 
-        return Transform.translate(
-          offset: Offset(0, floatOffset),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
-                onTap: _handleTap,
-                child: Transform.scale(
-                  scaleX: scaleX,
-                  scaleY: scaleY,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    clipBehavior: Clip.none,
-                    children: [
-                      // Ambient Bioluminescent Water Glow behind Gotita
-                      Container(
-                        width: widget.size * (1.25 + tick * 0.08),
-                        height: widget.size * (1.25 + tick * 0.08),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: effectiveMood == HydrationPetMood.tired
-                              ? Colors.orange.withValues(alpha: 0.10)
-                              : AppTheme.primaryAqua.withValues(alpha: 0.25),
-                          boxShadow: [
-                            BoxShadow(
-                              color: effectiveMood == HydrationPetMood.tired
-                                  ? Colors.orange.withValues(alpha: 0.15)
-                                  : AppTheme.primaryAqua.withValues(alpha: 0.30 + tick * 0.10),
-                              blurRadius: 36 + (tick * 12),
-                              spreadRadius: 8,
-                            ),
-                          ],
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: _handleTap,
+              child: Transform.scale(
+                scaleX: scaleX,
+                scaleY: scaleY,
+                child: Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Ambient Bioluminescent Water Glow behind Gotita
+                    Container(
+                      width: widget.size * 1.25,
+                      height: widget.size * 1.25,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: effectiveMood == HydrationPetMood.tired
+                            ? Colors.orange.withValues(alpha: 0.10)
+                            : AppTheme.primaryAqua.withValues(alpha: 0.25),
+                        boxShadow: [
+                          BoxShadow(
+                            color: effectiveMood == HydrationPetMood.tired
+                                ? Colors.orange.withValues(alpha: 0.15)
+                                : AppTheme.primaryAqua.withValues(alpha: 0.35),
+                            blurRadius: 36,
+                            spreadRadius: 8,
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Sparkles Particle Layer
+                    if (effectiveMood != HydrationPetMood.tired) ...[
+                      const Positioned(
+                        top: -12,
+                        left: -16,
+                        child: Opacity(
+                          opacity: 0.85,
+                          child: Icon(
+                            Icons.auto_awesome,
+                            size: 16,
+                            color: AppTheme.primaryAquaDim,
+                          ),
                         ),
                       ),
-                      // Floating Sparkles Particle Layer
-                      if (effectiveMood != HydrationPetMood.tired) ...[
-                        Positioned(
-                          top: -12 - (tick * 4),
-                          left: -16,
-                          child: Opacity(
-                            opacity: sparkleOpacity,
-                            child: const Icon(
-                              Icons.auto_awesome,
-                              size: 16,
-                              color: AppTheme.primaryAquaDim,
-                            ),
+                      const Positioned(
+                        top: -6,
+                        right: -14,
+                        child: Opacity(
+                          opacity: 0.90,
+                          child: Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 18,
+                            color: AppTheme.primaryAqua,
                           ),
                         ),
-                        Positioned(
-                          top: -6,
-                          right: -14 - (tick * 3),
-                          child: Opacity(
-                            opacity: (1.0 - sparkleOpacity).clamp(0.2, 1.0),
-                            child: const Icon(
-                              Icons.auto_awesome_rounded,
-                              size: 18,
-                              color: AppTheme.primaryAqua,
-                            ),
+                      ),
+                      const Positioned(
+                        bottom: 24,
+                        left: -20,
+                        child: Opacity(
+                          opacity: 0.80,
+                          child: Icon(
+                            Icons.star_rounded,
+                            size: 14,
+                            color: AppTheme.tertiaryMintBright,
                           ),
                         ),
-                        Positioned(
-                          bottom: 24,
-                          left: -20 - (tick * 4),
-                          child: Opacity(
-                            opacity: sparkleOpacity,
-                            child: const Icon(
-                              Icons.star_rounded,
-                              size: 14,
-                              color: AppTheme.tertiaryMintBright,
-                            ),
+                      ),
+                      const Positioned(
+                        bottom: 30,
+                        right: -18,
+                        child: Opacity(
+                          opacity: 0.85,
+                          child: Icon(
+                            Icons.auto_awesome,
+                            size: 15,
+                            color: AppTheme.primaryAquaDim,
                           ),
                         ),
-                        Positioned(
-                          bottom: 30 + (tick * 3),
-                          right: -18,
-                          child: Opacity(
-                            opacity: (1.0 - sparkleOpacity).clamp(0.2, 1.0),
-                            child: const Icon(
-                              Icons.auto_awesome,
-                              size: 15,
-                              color: AppTheme.primaryAquaDim,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
+                    ],
                       // Vector Body
                       CustomPaint(
                         size: Size(widget.size, widget.size),
@@ -281,12 +263,11 @@ class _HydrationPetState extends State<HydrationPet>
                 ),
               ),
             ],
-          ),
-        );
-      },
-    );
+          );
+        },
+      );
+    }
   }
-}
 
 
 class _GotitaPainter extends CustomPainter {

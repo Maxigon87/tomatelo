@@ -27,11 +27,19 @@ class StorageService {
   static const String _movementWeeklyKey = 'movementWeekly';
   static const String _movementHistoryKey = 'movementHistory';
   static const String _healthConnectLinkedKey = 'healthConnectLinked';
+  static const String _dailyHistoryKey = 'dailyHistory';
+  static const String _weekStartKey = 'weekStart';
 
   DocumentReference? get _userDoc {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return null;
     return FirebaseFirestore.instance.collection('users').doc(user.uid);
+  }
+
+  Stream<DocumentSnapshot>? getUserStream() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+    return FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots();
   }
 
   Future<void> _syncToFirestore(String key, dynamic value) async {
@@ -121,12 +129,53 @@ class StorageService {
         final list = List<String>.from(data[_movementHistoryKey] as List);
         await prefs.setStringList(_movementHistoryKey, list);
       }
+      if (data.containsKey(_dailyHistoryKey)) {
+        final map = Map<String, int>.from(
+          (data[_dailyHistoryKey] as Map).map(
+            (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+          ),
+        );
+        await prefs.setString(_dailyHistoryKey, jsonEncode(map));
+      }
+      if (data.containsKey(_weekStartKey)) {
+        await prefs.setString(_weekStartKey, data[_weekStartKey] as String);
+      }
       if (data.containsKey(_healthConnectLinkedKey)) {
         await prefs.setBool(_healthConnectLinkedKey, data[_healthConnectLinkedKey] as bool);
       }
     } catch (e) {
       print('Error syncing from Firestore: $e');
     }
+  }
+
+  Future<void> saveDailyHistory(Map<String, int> history) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_dailyHistoryKey, jsonEncode(history));
+    await _syncToFirestore(_dailyHistoryKey, history);
+  }
+
+  Future<Map<String, int>> getDailyHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_dailyHistoryKey);
+    if (value == null || value.isEmpty) return {};
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is Map) {
+        return decoded.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  Future<void> saveWeekStart(String weekStart) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_weekStartKey, weekStart);
+    await _syncToFirestore(_weekStartKey, weekStart);
+  }
+
+  Future<String?> getWeekStart() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_weekStartKey);
   }
 
   Future<void> saveNutritionToday(Map<String, int> habits) async {

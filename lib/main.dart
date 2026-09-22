@@ -7,6 +7,7 @@ import 'package:tomatelo/services/storage_service.dart';
 import 'package:tomatelo/theme/app_theme.dart';
 import 'package:tomatelo/screens/home_screen.dart';
 import 'package:tomatelo/screens/inicio_screen.dart';
+import 'package:tomatelo/screens/setup_screen.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -51,7 +52,7 @@ void main() async {
 
   final needsSetup = userData == null || dailyGoal == 0;
 
-  if (!needsSetup && userData != null) {
+  if (!needsSetup) {
     try {
       await NotificationService.instance.scheduleHydrationReminder(
         minutes: userData.reminderMinutes,
@@ -71,13 +72,23 @@ class TomateloApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    Widget initialScreen;
+    if (currentUser == null) {
+      initialScreen = const InicioScreen();
+    } else if (showSetupScreen) {
+      initialScreen = const SetupScreen();
+    } else {
+      initialScreen = const HomeScreen();
+    }
+
     return MaterialApp(
       title: 'Tomatelo',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system,
       theme: AppTheme.lightTheme(),
       darkTheme: AppTheme.darkTheme(),
-      home: showSetupScreen ? const InicioScreen() : const HomeScreen(),
+      home: initialScreen,
     );
   }
 }

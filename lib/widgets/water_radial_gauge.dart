@@ -2,7 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:tomatelo/theme/app_theme.dart';
 
-class WaterRadialGauge extends StatefulWidget {
+class WaterRadialGauge extends StatelessWidget {
   final int currentMl;
   final int targetMl;
 
@@ -13,32 +13,9 @@ class WaterRadialGauge extends StatefulWidget {
   });
 
   @override
-  State<WaterRadialGauge> createState() => _WaterRadialGaugeState();
-}
-
-class _WaterRadialGaugeState extends State<WaterRadialGauge>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulseController;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2500),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final safeTarget = widget.targetMl <= 0 ? 3000 : widget.targetMl;
-    final progressRatio = (widget.currentMl / safeTarget).clamp(0.0, 1.0);
+    final safeTarget = targetMl <= 0 ? 3000 : targetMl;
+    final progressRatio = (currentMl / safeTarget).clamp(0.0, 1.0);
     final percentage = (progressRatio * 100).toInt();
 
     return Column(
@@ -47,26 +24,22 @@ class _WaterRadialGaugeState extends State<WaterRadialGauge>
         SizedBox(
           width: 240,
           height: 130,
-          child: AnimatedBuilder(
-            animation: _pulseController,
-            builder: (context, child) {
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  TweenAnimationBuilder<double>(
-                    tween: Tween<double>(begin: 0, end: progressRatio),
-                    duration: const Duration(milliseconds: 600),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, animatedRatio, child) {
-                      return CustomPaint(
-                        size: const Size(240, 130),
-                        painter: _ArcGaugePainter(
-                          progressRatio: animatedRatio,
-                          pulseValue: _pulseController.value,
-                        ),
-                      );
-                    },
-                  ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: progressRatio),
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeOutCubic,
+                builder: (context, animatedRatio, child) {
+                  return CustomPaint(
+                    size: const Size(240, 130),
+                    painter: _ArcGaugePainter(
+                      progressRatio: animatedRatio,
+                    ),
+                  );
+                },
+              ),
                   Positioned(
                     bottom: 8,
                     child: Column(
@@ -77,13 +50,13 @@ class _WaterRadialGaugeState extends State<WaterRadialGauge>
                           transitionBuilder: (child, animation) =>
                               ScaleTransition(scale: animation, child: child),
                           child: Row(
-                            key: ValueKey(widget.currentMl),
+                            key: ValueKey(currentMl),
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.baseline,
                             textBaseline: TextBaseline.alphabetic,
                             children: [
                               Text(
-                                '${widget.currentMl}',
+                                '$currentMl',
                                 style: const TextStyle(
                                   fontSize: 36,
                                   fontWeight: FontWeight.w800,
@@ -147,9 +120,7 @@ class _WaterRadialGaugeState extends State<WaterRadialGauge>
                       ],
                     ),
                   ),
-                ],
-              );
-            },
+            ],
           ),
         ),
       ],
@@ -159,11 +130,9 @@ class _WaterRadialGaugeState extends State<WaterRadialGauge>
 
 class _ArcGaugePainter extends CustomPainter {
   final double progressRatio;
-  final double pulseValue;
 
   _ArcGaugePainter({
     required this.progressRatio,
-    required this.pulseValue,
   });
 
   @override
@@ -190,16 +159,16 @@ class _ArcGaugePainter extends CustomPainter {
 
     if (progressRatio > 0) {
       final activeSweepAngle = sweepAngle * progressRatio;
-      final blurRadius = 8.0 + (pulseValue * 4.0);
+      const blurRadius = 10.0;
 
       final glowPaint = Paint()
         ..color = AppTheme.primaryAqua.withValues(
-          alpha: 0.35 + (pulseValue * 0.15),
+          alpha: 0.40,
         )
         ..style = PaintingStyle.stroke
         ..strokeWidth = 22
         ..strokeCap = StrokeCap.round
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, blurRadius);
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, blurRadius);
 
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
@@ -229,8 +198,7 @@ class _ArcGaugePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ArcGaugePainter oldDelegate) {
-    return oldDelegate.progressRatio != progressRatio ||
-        oldDelegate.pulseValue != pulseValue;
+    return oldDelegate.progressRatio != progressRatio;
   }
 }
 

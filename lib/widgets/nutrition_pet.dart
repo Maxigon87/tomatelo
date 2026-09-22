@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:tomatelo/theme/app_theme.dart';
 
@@ -24,8 +23,7 @@ class NutritionPet extends StatefulWidget {
 }
 
 class _NutritionPetState extends State<NutritionPet>
-    with TickerProviderStateMixin {
-  late final AnimationController _floatController;
+    with SingleTickerProviderStateMixin {
   late final AnimationController _squishController;
   bool _overrideTired = false;
   bool _isBlinking = false;
@@ -34,11 +32,6 @@ class _NutritionPetState extends State<NutritionPet>
   @override
   void initState() {
     super.initState();
-    _floatController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3000),
-    )..repeat(reverse: true);
-
     _squishController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 350),
@@ -69,7 +62,6 @@ class _NutritionPetState extends State<NutritionPet>
   @override
   void dispose() {
     _blinkTimer?.cancel();
-    _floatController.dispose();
     _squishController.dispose();
     super.dispose();
   }
@@ -96,49 +88,43 @@ class _NutritionPetState extends State<NutritionPet>
     };
 
     return AnimatedBuilder(
-      animation: Listenable.merge([_floatController, _squishController]),
+      animation: _squishController,
       builder: (context, child) {
-        final tick = _floatController.value;
-        final floatOffset = math.sin(tick * math.pi * 2) * 4.5;
-        final breathe = 1.0 + math.sin(tick * math.pi) * 0.02;
-
         final squish = _squishController.value;
-        final scaleX = breathe * (1.0 + squish);
-        final scaleY = breathe * (1.0 - squish);
+        final scaleX = 1.0 + squish;
+        final scaleY = 1.0 - squish;
 
-        return Transform.translate(
-          offset: Offset(0, floatOffset),
-          child: Transform.scale(
-            scaleX: scaleX,
-            scaleY: scaleY,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  onTap: _handleTap,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    clipBehavior: Clip.none,
-                    children: [
-                      // Ambient Glow behind Manzanita
-                      Container(
-                        width: widget.size * (1.15 + tick * 0.06),
-                        height: widget.size * (1.15 + tick * 0.06),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppTheme.secondaryCoral.withValues(
-                            alpha: 0.18 + (tick * 0.08),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.secondaryCoral.withValues(
-                                alpha: 0.25,
-                              ),
-                              blurRadius: 30 + (tick * 10),
-                            ),
-                          ],
+        return Transform.scale(
+          scaleX: scaleX,
+          scaleY: scaleY,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: _handleTap,
+                child: Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Ambient Glow behind Manzanita
+                    Container(
+                      width: widget.size * 1.15,
+                      height: widget.size * 1.15,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppTheme.secondaryCoral.withValues(
+                          alpha: 0.20,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.secondaryCoral.withValues(
+                              alpha: 0.25,
+                            ),
+                            blurRadius: 32,
+                          ),
+                        ],
                       ),
+                    ),
                       CustomPaint(
                         size: Size(widget.size, widget.size),
                         painter: _ManzanitaPainter(
@@ -216,12 +202,11 @@ class _NutritionPetState extends State<NutritionPet>
                 ),
               ],
             ),
-          ),
-        );
-      },
-    );
+          );
+        },
+      );
+    }
   }
-}
 
 
 class _ManzanitaPainter extends CustomPainter {

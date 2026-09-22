@@ -1,28 +1,23 @@
+import 'dart:async';
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:confetti/confetti.dart';
 import 'package:tomatelo/models/nutrition_habit.dart';
 import 'package:tomatelo/screens/setup_screen.dart';
 import 'package:tomatelo/screens/inicio_screen.dart';
-import 'package:tomatelo/services/hydration_engine.dart';
-import 'package:tomatelo/services/notification_service.dart';
 import 'package:tomatelo/services/storage_service.dart';
-import 'package:tomatelo/services/health_service.dart';
 import 'package:tomatelo/theme/app_theme.dart';
 import 'package:tomatelo/utils/constants.dart';
 import 'package:tomatelo/widgets/droplet_animation.dart';
 import 'package:tomatelo/widgets/friendly_message.dart';
 import 'package:tomatelo/widgets/hydration_pet.dart';
 import 'package:tomatelo/widgets/nutrition_pet.dart';
-import 'package:tomatelo/widgets/movement_pet.dart';
 import 'package:tomatelo/widgets/nutrition_tracker_card.dart';
 import 'package:tomatelo/widgets/water_tracker_card.dart';
-import 'package:tomatelo/widgets/movement_tracker_card.dart';
-import 'package:tomatelo/widgets/weekly_chart.dart';
 import 'package:tomatelo/widgets/water_radial_gauge.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -34,22 +29,16 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _storageService = StorageService();
-  final _hydrationEngine = const HydrationEngine();
-  final _notificationService = NotificationService.instance;
   int _glassesToday = 0;
-  int _glassesYesterday = 0;
   int _dailyGoal = 0;
   List<int> _weeklyData = List.filled(7, 0);
+  Map<String, int> _dailyHistory = {};
   bool _dropTrigger = false;
   bool _goalCelebrated = false;
   bool _tooMuchWaterWarned = false;
-  HydrationAdvice? _hydrationAdvice;
-  late DateTime _dayStartTime;
-  late DateTime _dayEndTime;
   DateTime _now = DateTime.now();
   late final Duration _hydrationRefresh;
   Widget? _friendlyMessage;
-  ReminderSuggestion? _reminderSuggestion;
   DateTime? _lastDrinkAt;
   final PageController _pageController = PageController();
   late final ValueNotifier<double> _pagePosition;
@@ -59,15 +48,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<int> _nutritionWeeklyData = List.filled(7, 0);
 
   late final ConfettiController _confettiController;
-  int _movementMinutesToday = 0;
-  int _movementStepsToday = 0;
-  int _movementGoal = 30;
-  int _movementYesterday = 0;
-  List<int> _movementWeeklyData = List.filled(7, 0);
-  List<String> _movementHistory = [];
-  bool _healthConnectLinked = false;
-  bool _movementCelebrated = false;
-  bool _healthConnectAvailable = false;
+  StreamSubscription<DocumentSnapshot>? _userSubscription;
 
   @override
   void initState() {
@@ -79,12 +60,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _confettiController = ConfettiController(duration: const Duration(seconds: 3));
     _initializeScreen();
     _startAdvisorRefresh();
-    _checkHealthConnectAvailability();
+    _listenToFirestore();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _userSubscription?.cancel();
     _pageController
       ..removeListener(_handlePageScroll)
       ..dispose();
@@ -104,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!_pageController.hasClients) {
       return;
     }
-    _pagePosition.value = (_pageController.page ?? 0).clamp(0, 2).toDouble();
+    _pagePosition.value = (_pageController.page ?? 0).clamp(0, 1).toDouble();
   }
 
   void _onSectionSelected(int index) {
@@ -121,43 +103,119 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() {
         _now = DateTime.now();
-        _refreshHydrationAdvice();
       });
       _startAdvisorRefresh();
     });
   }
 
-  void _refreshHydrationAdvice() {
-    if (_dailyGoal <= 0) {
-      _hydrationAdvice = null;
-      _reminderSuggestion = null;
-      return;
-    }
+  void _listenToFirestore() {
+    final stream = _storageService.getUserStream();
+    if (stream == null) return;
+    _userSubscription = stream.listen((snapshot) {
+      if (!snapshot.exists || !mounted) return;
+      final data = snapshot.data() as Map<String, dynamic>?;
+      if (data == null) return;
+      _applyRemoteData(data);
+    }, onError: (e) {
+      debugPrint('Firestore stream error: $e');
+    });
+  }
 
-    final totalMl = _dailyGoal * AppConstants.waterStep;
-    final consumedMl = _glassesToday * AppConstants.waterStep;
+  void _applyRemoteData(Map<String, dynamic> data) {
+    final remoteGlasses = data['glassesToday'] as int?;
+    final remoteGoal = data['dailyGoal'] as int?;
+    final remoteWeekly = (data['weeklyData'] as List?)?.map((e) => (e as num).toInt()).toList();
+    final remoteHistory = (data['dailyHistory'] as Map?)?.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
 
-    _hydrationAdvice = _hydrationEngine.calculate(
-      totalMl: totalMl.toDouble(),
-      consumedMl: consumedMl.toDouble(),
-      startTime: _dayStartTime,
-      endTime: _dayEndTime,
-      now: _now,
-    );
-    _reminderSuggestion = _notificationService.buildSuggestion(
-      now: _now,
-      fallbackMinutes: 60,
-      hydrationAdvice: _hydrationAdvice,
-    );
+    if (!mounted) return;
+    setState(() {
+      if (remoteGlasses != null) _glassesToday = remoteGlasses;
+      if (remoteGoal != null) _dailyGoal = remoteGoal;
+      if (remoteWeekly != null && remoteWeekly.length == 7) {
+        _weeklyData = remoteWeekly;
+      }
+      if (remoteHistory != null) {
+        _dailyHistory = remoteHistory;
+      }
+      _now = DateTime.now();
+    });
   }
 
   Future<void> _initializeScreen() async {
-    final today = DateTime.now();
-    _dayStartTime = DateTime(today.year, today.month, today.day, 8);
-    _dayEndTime = DateTime(today.year, today.month, today.day, 22);
-    await _resetDataAtMidnight();
+    await _storageService.syncFromFirestore();
+    await _syncWeekAndDay();
     await _syncFromWidget();
     await _loadData();
+  }
+
+  Future<void> _syncWeekAndDay() async {
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    final mondayStr = "${monday.year}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}";
+
+    final storedLastReset = await _storageService.getLastReset();
+    final storedWeekStart = await _storageService.getWeekStart();
+    var dailyHistory = await _storageService.getDailyHistory();
+    var weeklyData = await _storageService.getWeeklyData();
+    if (weeklyData.length != 7) {
+      weeklyData = List.filled(7, 0);
+    }
+
+    if (storedWeekStart != mondayStr) {
+      weeklyData = List.filled(7, 0);
+      await _storageService.saveWeekStart(mondayStr);
+    }
+
+    if (storedLastReset != null &&
+        (storedLastReset.day != now.day ||
+         storedLastReset.month != now.month ||
+         storedLastReset.year != now.year)) {
+      final storedGlasses = await _storageService.getGlassesToday();
+      final yesterdayKey = "${storedLastReset.year}-${storedLastReset.month.toString().padLeft(2, '0')}-${storedLastReset.day.toString().padLeft(2, '0')}";
+      dailyHistory[yesterdayKey] = storedGlasses * AppConstants.waterStep;
+      await _storageService.saveDailyHistory(dailyHistory);
+      await _storageService.saveGlassesYesterday(storedGlasses);
+      await _storageService.saveGlassesToday(0);
+      await _storageService.clearLastDrinkAt();
+
+      final storedNutritionToday = _withDefaultNutritionValues(
+        await _storageService.getNutritionToday(),
+      );
+      final storedNutritionGoals = _withDefaultNutritionGoals(
+        await _storageService.getNutritionGoals(),
+      );
+      final nutritionWeeklyData = List<int>.from(
+        await _storageService.getNutritionWeeklyData(),
+      );
+      if (nutritionWeeklyData.length == 7) {
+        nutritionWeeklyData.removeAt(0);
+        nutritionWeeklyData.add(
+          _nutritionCompletedCount(storedNutritionToday, goals: storedNutritionGoals),
+        );
+        await _storageService.saveNutritionWeeklyData(nutritionWeeklyData);
+      }
+      await _storageService.saveNutritionYesterday(storedNutritionToday);
+      await _storageService.saveNutritionToday(_emptyNutritionValues());
+
+      await _storageService.saveLastReset(now);
+    } else if (storedLastReset == null) {
+      await _storageService.saveLastReset(now);
+      await _storageService.saveWeekStart(mondayStr);
+    }
+
+    final currentGlasses = await _storageService.getGlassesToday();
+    final todayIndex = now.weekday - 1;
+    weeklyData[todayIndex] = currentGlasses * AppConstants.waterStep;
+
+    for (int i = 0; i < todayIndex; i++) {
+      final pastDate = DateTime(monday.year, monday.month, monday.day).add(Duration(days: i));
+      final pastKey = "${pastDate.year}-${pastDate.month.toString().padLeft(2, '0')}-${pastDate.day.toString().padLeft(2, '0')}";
+      if (weeklyData[i] == 0 && dailyHistory.containsKey(pastKey)) {
+        weeklyData[i] = dailyHistory[pastKey]!;
+      }
+    }
+
+    await _storageService.saveWeeklyData(weeklyData);
   }
 
   Future<void> _syncFromWidget() async {
@@ -168,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final currentDate = DateTime.now().toIso8601String().split('T')[0];
 
     if (lastDate != currentDate) {
-      return; // Do not sync yesterday's widget data on a new day
+      return;
     }
 
     final water = await HomeWidget.getWidgetData<int>('water', defaultValue: 0) ?? 0;
@@ -194,9 +252,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _loadData() async {
     final glassesToday = await _storageService.getGlassesToday();
-    final glassesYesterday = await _storageService.getGlassesYesterday();
     final dailyGoal = await _storageService.getDailyGoal();
     final weeklyData = await _storageService.getWeeklyData();
+    final dailyHistory = await _storageService.getDailyHistory();
     final lastDrinkAt = await _storageService.getLastDrinkAt();
     final nutritionToday = _withDefaultNutritionValues(
       await _storageService.getNutritionToday(),
@@ -211,20 +269,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await _storageService.saveNutritionGoals(nutritionGoals);
     }
 
-    final movementGoal = await _storageService.getMovementGoal();
-    final movementMinutes = await _storageService.getMovementMinutes();
-    final movementSteps = await _storageService.getMovementSteps();
-    final movementYesterday = await _storageService.getMovementYesterday();
-    final movementWeeklyData = await _storageService.getMovementWeeklyData();
-    final movementHistory = await _storageService.getMovementHistory();
-    final healthConnectLinked = await _storageService.isHealthConnectLinked();
-
     if (!mounted) return;
     setState(() {
       _glassesToday = glassesToday;
-      _glassesYesterday = glassesYesterday;
       _dailyGoal = dailyGoal;
       _weeklyData = weeklyData;
+      _dailyHistory = dailyHistory;
       _goalCelebrated = glassesToday >= dailyGoal && dailyGoal > 0;
       _tooMuchWaterWarned = false;
       _now = DateTime.now();
@@ -233,72 +283,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _nutritionGoals = nutritionGoals;
       _nutritionYesterday = nutritionYesterday;
       _nutritionWeeklyData = nutritionWeeklyData;
-      _refreshHydrationAdvice();
-
-      _movementGoal = movementGoal;
-      _movementMinutesToday = movementMinutes;
-      _movementStepsToday = movementSteps;
-      _movementYesterday = movementYesterday;
-      _movementWeeklyData = movementWeeklyData;
-      _movementHistory = movementHistory;
-      _healthConnectLinked = healthConnectLinked;
-      _movementCelebrated = movementMinutes >= movementGoal && movementGoal > 0;
     });
     await _updateWidget(_glassesToday, _dailyGoal);
-    if (healthConnectLinked) {
-      await _fetchHealthConnectData();
-    }
-  }
-
-  Future<void> _resetDataAtMidnight() async {
-    final lastReset = await _storageService.getLastReset();
-    final now = DateTime.now();
-    final storedGlassesToday = await _storageService.getGlassesToday();
-    final storedNutritionToday = _withDefaultNutritionValues(
-      await _storageService.getNutritionToday(),
-    );
-    final storedNutritionGoals = _withDefaultNutritionGoals(
-      await _storageService.getNutritionGoals(),
-    );
-
-    if (lastReset == null) {
-      await _storageService.saveLastReset(now);
-      return;
-    }
-
-    if (now.day != lastReset.day ||
-        now.month != lastReset.month ||
-        now.year != lastReset.year) {
-      final weeklyData = List<int>.from(await _storageService.getWeeklyData());
-      weeklyData.removeAt(0);
-      weeklyData.add(storedGlassesToday);
-      await _storageService.saveWeeklyData(weeklyData);
-      final nutritionWeeklyData = List<int>.from(
-        await _storageService.getNutritionWeeklyData(),
-      );
-      nutritionWeeklyData.removeAt(0);
-      nutritionWeeklyData.add(
-        _nutritionCompletedCount(storedNutritionToday, goals: storedNutritionGoals),
-      );
-      await _storageService.saveNutritionWeeklyData(nutritionWeeklyData);
-      await _storageService.saveNutritionYesterday(storedNutritionToday);
-      await _storageService.saveNutritionToday(_emptyNutritionValues());
-      await _storageService.saveGlassesYesterday(storedGlassesToday);
-      await _storageService.saveGlassesToday(0);
-      await _storageService.clearLastDrinkAt();
-
-      // Movement reset at midnight
-      final storedMovementMinutes = await _storageService.getMovementMinutes();
-      final movementWeeklyData = List<int>.from(await _storageService.getMovementWeeklyData());
-      movementWeeklyData.removeAt(0);
-      movementWeeklyData.add(storedMovementMinutes);
-      await _storageService.saveMovementWeeklyData(movementWeeklyData);
-      await _storageService.saveMovementYesterday(storedMovementMinutes);
-      await _storageService.saveMovementMinutes(0);
-      await _storageService.saveMovementSteps(0);
-
-      await _storageService.saveLastReset(now);
-    }
   }
 
   int get _upperHydrationLimit {
@@ -330,14 +316,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _incrementGlasses() {
+    final now = DateTime.now();
+    final todayIndex = now.weekday - 1;
+    final newGlasses = _glassesToday + 1;
+    final newWeekly = List<int>.from(_weeklyData);
+    if (newWeekly.length == 7) {
+      newWeekly[todayIndex] = newGlasses * AppConstants.waterStep;
+    }
+
+    final todayKey = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    final updatedHistory = Map<String, int>.from(_dailyHistory);
+    updatedHistory[todayKey] = newGlasses * AppConstants.waterStep;
+
     setState(() {
-      _glassesToday++;
+      _glassesToday = newGlasses;
+      _weeklyData = newWeekly;
+      _dailyHistory = updatedHistory;
       _dropTrigger = !_dropTrigger;
-      _now = DateTime.now();
+      _now = now;
       _lastDrinkAt = _now;
-      _refreshHydrationAdvice();
     });
+
     _storageService.saveGlassesToday(_glassesToday);
+    _storageService.saveWeeklyData(newWeekly);
+    _storageService.saveDailyHistory(updatedHistory);
     _storageService.saveLastDrinkAt(_lastDrinkAt!);
     _updateWidget(_glassesToday, _dailyGoal);
 
@@ -371,9 +373,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return;
     }
 
+    final now = DateTime.now();
+    final todayIndex = now.weekday - 1;
+    final newGlasses = _glassesToday - 1;
+    final newWeekly = List<int>.from(_weeklyData);
+    if (newWeekly.length == 7) {
+      newWeekly[todayIndex] = newGlasses * AppConstants.waterStep;
+    }
+
+    final todayKey = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    final updatedHistory = Map<String, int>.from(_dailyHistory);
+    updatedHistory[todayKey] = newGlasses * AppConstants.waterStep;
+
     setState(() {
-      _glassesToday--;
-      _now = DateTime.now();
+      _glassesToday = newGlasses;
+      _weeklyData = newWeekly;
+      _dailyHistory = updatedHistory;
+      _now = now;
       if (_glassesToday < _dailyGoal) {
         _goalCelebrated = false;
       }
@@ -383,10 +399,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (_glassesToday == 0) {
         _lastDrinkAt = null;
       }
-      _refreshHydrationAdvice();
     });
 
     await _storageService.saveGlassesToday(_glassesToday);
+    await _storageService.saveWeeklyData(newWeekly);
+    await _storageService.saveDailyHistory(updatedHistory);
     if (_lastDrinkAt == null) {
       await _storageService.clearLastDrinkAt();
     }
@@ -413,18 +430,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     color: AppTheme.surfaceLow,
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.local_fire_department_rounded,
                         color: AppTheme.primaryAqua,
                         size: 18,
                       ),
-                      SizedBox(width: 4),
+                      const SizedBox(width: 4),
                       Text(
-                        '5 días',
-                        style: TextStyle(
+                        '$_waterStreak días',
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.primaryAqua,
@@ -441,11 +458,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  position < 0.5
-                      ? 'Agua'
-                      : position < 1.5
-                          ? 'Nutrición'
-                          : 'Actividad',
+                  position < 0.5 ? 'Agua Pura' : 'Frutas & Té',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -482,14 +495,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     _showFriendlyMessage(
                       title: _pagePosition.value < 0.5
                           ? 'Consejo de hidratación'
-                          : _pagePosition.value < 1.5
-                              ? 'Consejo de nutrición'
-                              : 'Consejo de movimiento',
+                          : 'Consejo de nutrición',
                       message: _pagePosition.value < 0.5
                           ? '¡Vas increíble! Bebe agua de a poco durante el día y tu cuerpo te lo va a aplaudir. 👏'
-                          : _pagePosition.value < 1.5
-                              ? 'Suma hábitos simples y amables: una fruta, una infusión o un snack saludable. Sin culpa, paso a paso. 🍎'
-                              : 'Camina y muévete para activar tu cuerpo. 30 minutos al día equivalen a unos 3,000 pasos activos. ¡Tú puedes! 🏃‍♂️',
+                          : 'Suma hábitos simples y amables: una fruta, una infusión o un snack saludable. Sin culpa, paso a paso. 🍎',
                       icon: Icons.info_outline_rounded,
                       color: _activeAccentColor,
                     );
@@ -504,11 +513,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         ),
                       ),
                     );
-                  }
-
-                  if (value == 'movement_goal') {
-                    _showMovementGoalSheet();
-                    return;
                   }
 
                   if (value == 'logout') {
@@ -531,15 +535,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                  if (_pagePosition.value >= 1.5)
-                    const PopupMenuItem<String>(
-                      value: 'movement_goal',
-                      child: ListTile(
-                        leading: Icon(Icons.edit_road_rounded),
-                        title: Text('Meta de caminata'),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
                   const PopupMenuItem<String>(
                     value: 'settings',
                     child: ListTile(
@@ -571,7 +566,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   children: [
                     RepaintBoundary(child: _buildWaterPage(context)),
                     RepaintBoundary(child: _buildNutritionPage(context)),
-                    RepaintBoundary(child: _buildMovementPage(context)),
                   ],
                 ),
                 DropletAnimation(trigger: _dropTrigger),
@@ -788,19 +782,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
 
   Color get _activeAccentColor {
-    if (_pagePosition.value <= 1.0) {
-      return Color.lerp(
-        AppTheme.primaryBlue,
-        const Color(0xFF7CB342),
-        _pagePosition.value,
-      )!;
-    } else {
-      return Color.lerp(
-        const Color(0xFF7CB342),
-        const Color(0xFFE65100),
-        (_pagePosition.value - 1.0).clamp(0.0, 1.0),
-      )!;
-    }
+    return Color.lerp(
+      AppTheme.primaryAqua,
+      AppTheme.secondaryCoral,
+      _pagePosition.value.clamp(0.0, 1.0),
+    )!;
   }
 
   int get _nutritionCompleted => _nutritionCompletedCount(_nutritionToday);
@@ -956,122 +942,58 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildNutritionAssistant(BuildContext context) {
-    final pending = nutritionHabits.where((habit) {
-      final count = _nutritionToday[habit.id] ?? 0;
-      final goal = _nutritionGoals[habit.id] ?? habit.defaultGoal;
-      return count < goal;
-    }).toList();
-    final message = pending.isEmpty
-        ? '✨ Buen equilibrio hasta ahora. Tu día ya tiene hábitos suaves y completos.'
-        : '${pending.first.emoji} ${_assistantMessageFor(pending.first)}';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _CardTitle(icon: Icons.auto_awesome, title: 'Asistente inteligente'),
-        const SizedBox(height: 14),
-        _StatusChip(label: '${(_nutritionProgress * 100).round()}% de equilibrio diario'),
-        const SizedBox(height: 12),
-        Text(
-          message,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.96),
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Tip liviano: elige una opción simple cuando te quede cómodo. No hace falta hacerlo perfecto.',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.88)),
-        ),
-      ],
-    );
-  }
-
-  String _assistantMessageFor(NutritionHabit habit) {
-    return switch (habit.id) {
-      'fruit' => 'Hace rato no registras fruta hoy. Una fruta puede sumar frescura.',
-      'yogurt' => 'Un yogurt o lácteo puede ser una buena opción tranquila.',
-      'tea' => 'Hora ideal para una infusión calentita o fresca.',
-      _ => 'Un snack saludable puede acompañar tu día con calma.',
-    };
-  }
-
-  Widget _buildNutritionYesterday(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _CardTitle(icon: Icons.history_rounded, title: 'Ayer'),
-        const SizedBox(height: 14),
-        ...nutritionHabits.map((habit) {
-          final count = _nutritionYesterday[habit.id] ?? 0;
-          final goal = _nutritionGoals[habit.id] ?? habit.defaultGoal;
-          final done = count >= goal && goal > 0;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                Icon(
-                  done ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '${habit.emoji} ${habit.label}',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                Text(
-                  '$count/$goal',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9)),
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  String _formatTime(DateTime time) {
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-  }
-
   double _mlFromGlasses(int glasses) =>
       (glasses * AppConstants.waterStep).toDouble();
 
-  double _percent(num value, num total) {
-    if (total <= 0) {
-      return 0;
-    }
-    return (value / total).clamp(0, 1).toDouble();
-  }
-
-  String get _feedbackMessage {
-    if (_hydrationAdvice == null) {
-      return 'Configura una meta para ver tu progreso.';
-    }
-
-    return switch (_hydrationAdvice!.status) {
-      HydrationStatus.onTrack => 'Vas bien 💧',
-      HydrationStatus.slightlyBehind =>
-        'Te estás quedando, tomá un poco ahora.',
-      HydrationStatus.behind =>
-        'Te estás quedando, subamos el ritmo con calma.',
-      HydrationStatus.critical =>
-        'Te queda mucha agua en poco tiempo. Evitá tomar todo junto.',
-    };
-  }
-
-  // Si vamos al día con el asistente la gota está feliz y con color.
-  // Si vamos atrasados, la mostramos triste y en gris.
+  // La gota refleja en tiempo real el progreso de hidratación según Firebase y la hora del día.
+  // Si ha tomado suficiente agua para el avance del día, está feliz.
+  // Si no ha tomado agua suficiente a medida que avanza el día, está triste / sedienta.
   HydrationPetMood get _petMood {
-    final status = _hydrationAdvice?.status;
-    final isOnTrack = status == null || status == HydrationStatus.onTrack;
-    return isOnTrack ? HydrationPetMood.happy : HydrationPetMood.tired;
+    if (_dailyGoal <= 0) return HydrationPetMood.happy;
+    if (_glassesToday >= _dailyGoal) return HydrationPetMood.happy;
+
+    final now = DateTime.now();
+    // Antes de las 8:00 AM, recién comienza la mañana
+    if (now.hour < 8) return HydrationPetMood.happy;
+
+    // Jornada activa entre las 8:00 y las 22:00 (14 horas activas)
+    final elapsedHours = (now.hour - 8) + (now.minute / 60.0);
+    const totalActiveHours = 14.0;
+    final expectedFraction = (elapsedHours / totalActiveHours).clamp(0.0, 1.0);
+    final expectedGlasses = _dailyGoal * expectedFraction;
+
+    // Con una tolerancia amable de medio vaso
+    if (_glassesToday >= (expectedGlasses - 0.5)) {
+      return HydrationPetMood.happy;
+    } else {
+      return HydrationPetMood.tired;
+    }
+  }
+
+  int get _waterStreak {
+    int streak = 0;
+    final now = DateTime.now();
+    DateTime checkDate = now;
+
+    if (_dailyGoal > 0 && _glassesToday >= _dailyGoal) {
+      streak++;
+      checkDate = now.subtract(const Duration(days: 1));
+    } else {
+      checkDate = now.subtract(const Duration(days: 1));
+    }
+
+    while (true) {
+      final key = "${checkDate.year}-${checkDate.month.toString().padLeft(2, '0')}-${checkDate.day.toString().padLeft(2, '0')}";
+      final ml = _dailyHistory[key] ?? 0;
+      final glasses = (ml / AppConstants.waterStep).round();
+      if (_dailyGoal > 0 && glasses >= _dailyGoal) {
+        streak++;
+        checkDate = checkDate.subtract(const Duration(days: 1));
+      } else {
+        break;
+      }
+    }
+    return streak;
   }
 
   NutritionPetMood get _nutritionPetMood {
@@ -1088,455 +1010,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
     // Después de las 20 (noche): Triste si no cumplió la meta
     return progress >= 0.8 ? NutritionPetMood.happy : NutritionPetMood.tired;
-  }
-
-  Future<void> _checkHealthConnectAvailability() async {
-    final available = await HealthService.instance.isAvailable();
-    if (!mounted) return;
-    setState(() {
-      _healthConnectAvailable = available;
-    });
-  }
-
-  Future<void> _linkHealthConnect() async {
-    final success = await HealthService.instance.requestPermissions();
-    if (success) {
-      setState(() {
-        _healthConnectLinked = true;
-      });
-      await _storageService.saveHealthConnectLinked(true);
-      await _fetchHealthConnectData();
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se otorgaron los permisos de Conexión de Salud. Puedes registrar manualmente.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _fetchHealthConnectData() async {
-    if (!_healthConnectLinked) return;
-    final data = await HealthService.instance.fetchTodayData();
-    final steps = data['steps'] ?? 0;
-    final minutes = data['minutes'] ?? 0;
-
-    final currentMinutes = await _storageService.getMovementMinutes();
-    final currentSteps = await _storageService.getMovementSteps();
-
-    if (minutes > currentMinutes || steps > currentSteps) {
-      final oldMinutes = _movementMinutesToday;
-      setState(() {
-        if (minutes > currentMinutes) _movementMinutesToday = minutes;
-        if (steps > currentSteps) _movementStepsToday = steps;
-      });
-      await _storageService.saveMovementMinutes(_movementMinutesToday);
-      await _storageService.saveMovementSteps(_movementStepsToday);
-      _checkMovementGoalReached(oldMinutes, _movementMinutesToday);
-    }
-  }
-
-  void _incrementMovementMinutes(int delta) async {
-    final oldMinutes = _movementMinutesToday;
-    setState(() {
-      _movementMinutesToday += delta;
-    });
-    await _storageService.saveMovementMinutes(_movementMinutesToday);
-    _checkMovementGoalReached(oldMinutes, _movementMinutesToday);
-  }
-
-  void _decrementMovementMinutes(int delta) async {
-    if (_movementMinutesToday <= 0) return;
-    setState(() {
-      _movementMinutesToday = max(0, _movementMinutesToday - delta);
-      if (_movementMinutesToday < _movementGoal) {
-        _movementCelebrated = false;
-      }
-    });
-    await _storageService.saveMovementMinutes(_movementMinutesToday);
-  }
-
-  void _incrementMovementSteps(int delta) async {
-    setState(() {
-      _movementStepsToday += delta;
-    });
-    await _storageService.saveMovementSteps(_movementStepsToday);
-  }
-
-  void _checkMovementGoalReached(int oldMinutes, int newMinutes) async {
-    if (newMinutes >= _movementGoal && oldMinutes < _movementGoal && !_movementCelebrated) {
-      setState(() {
-        _movementCelebrated = true;
-      });
-      
-      final todayStr = DateTime.now().toIso8601String().split('T')[0];
-      if (!_movementHistory.contains(todayStr)) {
-        _movementHistory.add(todayStr);
-        await _storageService.saveMovementHistory(_movementHistory);
-      }
-
-      _confettiController.play();
-      _showFriendlyMessage(
-        title: '¡Meta alcanzada! 🌟',
-        message: 'Completaste tus $_movementGoal minutos de movimiento hoy. Tu cuerpo y tu mente te lo agradecen. ¡A mantener la racha!',
-        icon: Icons.celebration_rounded,
-        color: const Color(0xFFE65100),
-      );
-    }
-  }
-
-  int _calculateStreak() {
-    if (_movementHistory.isEmpty) return 0;
-    
-    final sortedDates = List<String>.from(_movementHistory)..sort();
-    int streak = 0;
-    DateTime checkDate = DateTime.now();
-    final todayStr = checkDate.toIso8601String().split('T')[0];
-    final yesterdayStr = checkDate.subtract(const Duration(days: 1)).toIso8601String().split('T')[0];
-    
-    if (!sortedDates.contains(todayStr) && !sortedDates.contains(yesterdayStr)) {
-      return 0;
-    }
-    
-    if (sortedDates.contains(todayStr)) {
-      checkDate = DateTime.now();
-    } else {
-      checkDate = DateTime.now().subtract(const Duration(days: 1));
-    }
-    
-    while (true) {
-      final dateStr = checkDate.toIso8601String().split('T')[0];
-      if (sortedDates.contains(dateStr)) {
-        streak++;
-        checkDate = checkDate.subtract(const Duration(days: 1));
-      } else {
-        break;
-      }
-    }
-    
-    return streak;
-  }
-
-  void _showMovementGoalSheet() {
-    int tempGoal = _movementGoal;
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.96),
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    blurRadius: 24,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Meta de movimiento diario',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Ajusta tu meta diaria en minutos activos de caminata.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton.filledTonal(
-                        onPressed: tempGoal > 5
-                            ? () => setSheetState(() => tempGoal -= 5)
-                            : null,
-                        icon: const Icon(Icons.remove_rounded),
-                      ),
-                      Container(
-                        width: 100,
-                        alignment: Alignment.center,
-                        child: Text(
-                          '$tempGoal min',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      IconButton.filledTonal(
-                        onPressed: tempGoal < 180
-                            ? () => setSheetState(() => tempGoal += 5)
-                            : null,
-                        icon: const Icon(Icons.add_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () {
-                        setState(() {
-                          _movementGoal = tempGoal;
-                          _movementCelebrated = _movementMinutesToday >= _movementGoal;
-                        });
-                        _storageService.saveMovementGoal(tempGoal);
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('Guardar meta'),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildMovementPage(BuildContext context) {
-    final streak = _calculateStreak();
-    final activeMood = _movementMinutesToday >= _movementGoal
-        ? MovementPetMood.happy
-        : _movementMinutesToday > 0
-            ? MovementPetMood.walking
-            : MovementPetMood.bored;
-
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Padding(
-        padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
-          left: 24,
-          right: 24,
-          bottom: 24,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 6),
-            RepaintBoundary(
-              child: MovementPet(
-                mood: activeMood,
-                size: 112,
-              ),
-            ),
-            const SizedBox(height: 24),
-            if (!_healthConnectLinked && _healthConnectAvailable) ...[
-              _GradientInfoCard(
-                colors: const [Color(0xFFFFB74D), Color(0xFFE65100)],
-                shadowColor: const Color(0xFFE65100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.favorite_rounded,
-                      color: Colors.white,
-                      size: 40,
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Sincroniza tu tiempo de actividad',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Para que no tengas que activar un cronómetro cada vez que caminas o te mueves, nos conectamos de forma segura con Conexión de Salud (Google Health Connect). Así, tu teléfono medirá tu tiempo activo en segundo plano de manera ultra eficiente.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _linkHealthConnect,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFFE65100),
-                        elevation: 4,
-                      ),
-                      child: const Text(
-                        'Vincular con Conexión de Salud',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _healthConnectLinked = false;
-                          _healthConnectAvailable = false;
-                        });
-                      },
-                      child: const Text(
-                        'O continuar con registro manual',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ] else ...[
-              MovementTrackerCard(
-                currentMinutes: _movementMinutesToday,
-                goalMinutes: _movementGoal,
-                onAddMinutes: () => _incrementMovementMinutes(5),
-                onAdd15Minutes: () => _incrementMovementMinutes(15),
-                onRemoveMinutes: () => _decrementMovementMinutes(5),
-                showManualControls: true,
-              ),
-              const SizedBox(height: 18),
-              _GradientInfoCard(
-                colors: const [Color(0xFFFFB74D), Color(0xFFE65100)],
-                shadowColor: const Color(0xFFE65100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _CardTitle(icon: Icons.insights_rounded, title: 'Resumen de actividad'),
-                    const SizedBox(height: 16),
-                    _StatusChip(label: 'Racha actual: $streak días 🔥'),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Tiempo activo hoy: $_movementMinutesToday min\n'
-                      'Meta diaria: $_movementGoal min\n'
-                      'Calorías activas estimadas: ${(_movementMinutesToday * 4.5).round()} kcal',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        fontWeight: FontWeight.w600,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Conexión de Salud:',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.88),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        _StatusChip(
-                          label: _healthConnectLinked ? '🟢 Conectado' : '⚪ Manual',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              _GradientInfoCard(
-                colors: const [Color(0xFFFFCC80), Color(0xFFFFB74D)],
-                shadowColor: const Color(0xFFFFB74D),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _CardTitle(icon: Icons.military_tech_rounded, title: 'Logros y Medallas'),
-                    const SizedBox(height: 16),
-                    _buildMedalRow(
-                      title: 'Caminante Constante',
-                      subtitle: '3 días seguidos cumpliendo la meta',
-                      icon: '🎖️',
-                      unlocked: streak >= 3,
-                    ),
-                    const Divider(color: Colors.white24, height: 20),
-                    _buildMedalRow(
-                      title: 'Hábito de Hierro',
-                      subtitle: '7 días seguidos cumpliendo la meta',
-                      icon: '🏆',
-                      unlocked: streak >= 7,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              RepaintBoundary(
-                child: WeeklyChart(
-                  data: _movementWeeklyData,
-                  gradientColors: const [Color(0xFFFFB74D), Color(0xFFE65100)],
-                  shadowColor: const Color(0xFFE65100),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMedalRow({
-    required String title,
-    required String subtitle,
-    required String icon,
-    required bool unlocked,
-  }) {
-    return Row(
-      children: [
-        Opacity(
-          opacity: unlocked ? 1.0 : 0.25,
-          child: Text(icon, style: const TextStyle(fontSize: 32)),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: unlocked ? 1.0 : 0.6),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  decoration: unlocked ? null : TextDecoration.lineThrough,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: unlocked ? 0.85 : 0.45),
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Icon(
-          unlocked ? Icons.check_circle_rounded : Icons.lock_outline_rounded,
-          color: unlocked ? Colors.white : Colors.white30,
-        ),
-      ],
-    );
   }
 }
 
@@ -1555,30 +1028,15 @@ class _SwipeBackground extends StatelessWidget {
     final nutritionColors = isDark
         ? const [Color(0xFF101F13), Color(0xFF27451F), Color(0xFF5B3A16)]
         : const [Color(0xFFF4FFE8), Color(0xFFFFF2CC), Colors.white];
-    final movementColors = isDark
-        ? const [Color(0xFF2C1607), Color(0xFF5A2A0C), Color(0xFF783E0E)]
-        : const [Color(0xFFFFF4EB), Color(0xFFFFE3CC), Colors.white];
 
-    List<Color> currentColors;
-    if (pagePosition <= 1.0) {
-      currentColors = List.generate(
-        waterColors.length,
-        (index) => Color.lerp(
-          waterColors[index],
-          nutritionColors[index],
-          pagePosition.clamp(0.0, 1.0),
-        )!,
-      );
-    } else {
-      currentColors = List.generate(
-        nutritionColors.length,
-        (index) => Color.lerp(
-          nutritionColors[index],
-          movementColors[index],
-          (pagePosition - 1.0).clamp(0.0, 1.0),
-        )!,
-      );
-    }
+    final currentColors = List.generate(
+      waterColors.length,
+      (index) => Color.lerp(
+        waterColors[index],
+        nutritionColors[index],
+        pagePosition.clamp(0.0, 1.0),
+      )!,
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -1637,20 +1095,11 @@ class _SectionPill extends StatelessWidget {
           ),
           Expanded(
             child: _PillItem(
-              label: 'Frutas & Tés',
+              label: 'Frutas & Té',
               icon: Icons.eco_rounded,
-              selected: pagePosition >= 0.5 && pagePosition < 1.5,
+              selected: pagePosition >= 0.5,
               activeColor: AppTheme.secondaryCoral,
               onTap: () => onSectionSelected(1),
-            ),
-          ),
-          Expanded(
-            child: _PillItem(
-              label: 'Actividad',
-              icon: Icons.directions_walk_rounded,
-              selected: pagePosition >= 1.5,
-              activeColor: AppTheme.tertiaryMint,
-              onTap: () => onSectionSelected(2),
             ),
           ),
         ],
@@ -1717,125 +1166,6 @@ class _PillItem extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _GradientInfoCard extends StatelessWidget {
-  const _GradientInfoCard({
-    required this.colors,
-    required this.shadowColor,
-    required this.child,
-  });
-
-  final List<Color> colors;
-  final Color shadowColor;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: shadowColor.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Padding(padding: const EdgeInsets.all(24), child: child),
-    );
-  }
-}
-
-class _CardTitle extends StatelessWidget {
-  const _CardTitle({required this.icon, required this.title});
-
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.white, size: 20),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-}
-
-class _YesterdayWater extends StatelessWidget {
-  const _YesterdayWater({required this.glassesYesterday});
-
-  final int glassesYesterday;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          'Ayer',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.white.withValues(alpha: 0.95),
-          ),
-        ),
-        const SizedBox(height: 12),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 450),
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
-          child: Text(
-            key: ValueKey(glassesYesterday),
-            '$glassesYesterday vasos',
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

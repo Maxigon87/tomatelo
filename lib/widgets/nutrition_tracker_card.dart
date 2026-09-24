@@ -505,7 +505,7 @@ class _WeeklyHabitsCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: List.generate(7, (index) {
               final val = safeData[index];
-              final ratio = (val / 5).clamp(0.1, 1.0);
+              final ratio = val == 0 ? 0.0 : (val / 5).clamp(0.15, 1.0);
               final isToday = index == (DateTime.now().weekday - 1);
 
               return Column(

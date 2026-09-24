@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tomatelo/models/user_data.dart';
 
 class StorageService {
+  static const String _nameKey = 'name';
   static const String _weightKey = 'weight';
   static const String _heightKey = 'height';
   static const String _reminderMinutesKey = 'reminderMinutes';
@@ -29,6 +30,9 @@ class StorageService {
   static const String _healthConnectLinkedKey = 'healthConnectLinked';
   static const String _dailyHistoryKey = 'dailyHistory';
   static const String _weekStartKey = 'weekStart';
+  static const String _livesKey = 'lives';
+  static const String _themeModeKey = 'themeMode';
+  static const String _lastAwardedWeekKey = 'lastAwardedWeek';
 
   DocumentReference? get _userDoc {
     final user = FirebaseAuth.instance.currentUser;
@@ -64,6 +68,9 @@ class StorageService {
 
       final prefs = await SharedPreferences.getInstance();
 
+      if (data.containsKey(_nameKey)) {
+        await prefs.setString(_nameKey, data[_nameKey] as String);
+      }
       if (data.containsKey(_weightKey)) {
         await prefs.setDouble(_weightKey, (data[_weightKey] as num).toDouble());
       }
@@ -140,12 +147,54 @@ class StorageService {
       if (data.containsKey(_weekStartKey)) {
         await prefs.setString(_weekStartKey, data[_weekStartKey] as String);
       }
+      if (data.containsKey(_livesKey)) {
+        await prefs.setInt(_livesKey, (data[_livesKey] as num).toInt());
+      }
+      if (data.containsKey(_themeModeKey)) {
+        await prefs.setString(_themeModeKey, data[_themeModeKey] as String);
+      }
+      if (data.containsKey(_lastAwardedWeekKey)) {
+        await prefs.setString(_lastAwardedWeekKey, data[_lastAwardedWeekKey] as String);
+      }
       if (data.containsKey(_healthConnectLinkedKey)) {
         await prefs.setBool(_healthConnectLinkedKey, data[_healthConnectLinkedKey] as bool);
       }
     } catch (e) {
       print('Error syncing from Firestore: $e');
     }
+  }
+
+  Future<void> saveLives(int lives) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_livesKey, lives);
+    await _syncToFirestore(_livesKey, lives);
+  }
+
+  Future<int> getLives() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_livesKey) ?? 1;
+  }
+
+  Future<void> saveThemeMode(String mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themeModeKey, mode);
+    await _syncToFirestore(_themeModeKey, mode);
+  }
+
+  Future<String> getThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_themeModeKey) ?? 'dark';
+  }
+
+  Future<void> saveLastAwardedWeek(String week) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastAwardedWeekKey, week);
+    await _syncToFirestore(_lastAwardedWeekKey, week);
+  }
+
+  Future<String?> getLastAwardedWeek() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_lastAwardedWeekKey);
   }
 
   Future<void> saveDailyHistory(Map<String, int> history) async {
@@ -265,10 +314,12 @@ class StorageService {
 
   Future<void> saveUserData(UserData userData) async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_nameKey, userData.name);
     await prefs.setDouble(_weightKey, userData.weight);
     await prefs.setDouble(_heightKey, userData.height);
     await prefs.setInt(_reminderMinutesKey, userData.reminderMinutes);
 
+    await _syncToFirestore(_nameKey, userData.name);
     await _syncToFirestore(_weightKey, userData.weight);
     await _syncToFirestore(_heightKey, userData.height);
     await _syncToFirestore(_reminderMinutesKey, userData.reminderMinutes);
@@ -281,6 +332,7 @@ class StorageService {
 
     if (weight != null && height != null) {
       return UserData(
+        name: prefs.getString(_nameKey) ?? '',
         weight: weight,
         height: height,
         reminderMinutes: prefs.getInt(_reminderMinutesKey) ?? 60,

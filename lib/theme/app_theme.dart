@@ -23,6 +23,14 @@ class AppTheme {
   static const Color tertiaryMint = Color(0xFF34D399); // Activity / Tea (Mint Infusion)
   static const Color tertiaryMintBright = Color(0xFF4EE6AA);
 
+  // === Light Palette Tokens ===
+  static const Color lightBackground = Color(0xFFF0F6FF);
+  static const Color lightSurfaceLow = Color(0xFFFFFFFF);
+  static const Color lightSurfaceContainer = Color(0xFFE5F1FF);
+  static const Color lightSurfaceHigh = Color(0xFFD4E5F9);
+  static const Color lightOnSurface = Color(0xFF0F172A);
+  static const Color lightOnSurfaceVariant = Color(0xFF475569);
+
   static ThemeData darkTheme() {
     final textTheme = GoogleFonts.plusJakartaSansTextTheme(
       ThemeData.dark().textTheme,
@@ -62,7 +70,44 @@ class AppTheme {
     );
   }
 
-  static ThemeData lightTheme() => darkTheme();
+  static ThemeData lightTheme() {
+    final textTheme = GoogleFonts.plusJakartaSansTextTheme(
+      ThemeData.light().textTheme,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: lightBackground,
+      colorScheme: const ColorScheme.light(
+        surface: lightBackground,
+        primary: Color(0xFF0284C7),
+        secondary: Color(0xFFE11D48),
+        tertiary: Color(0xFF059669),
+        onSurface: lightOnSurface,
+        onSurfaceVariant: lightOnSurfaceVariant,
+      ),
+      textTheme: textTheme,
+      cardTheme: CardThemeData(
+        color: lightSurfaceLow,
+        elevation: 4,
+        shadowColor: Colors.black.withValues(alpha: 0.08),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(
+            color: Colors.black.withValues(alpha: 0.06),
+            width: 1,
+          ),
+        ),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+      ),
+    );
+  }
 }
 
 class WaterBackground extends StatelessWidget {

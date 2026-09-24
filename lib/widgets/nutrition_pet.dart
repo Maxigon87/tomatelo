@@ -25,7 +25,6 @@ class NutritionPet extends StatefulWidget {
 class _NutritionPetState extends State<NutritionPet>
     with SingleTickerProviderStateMixin {
   late final AnimationController _squishController;
-  bool _overrideTired = false;
   bool _isBlinking = false;
   Timer? _blinkTimer;
 
@@ -70,16 +69,11 @@ class _NutritionPetState extends State<NutritionPet>
     _squishController.forward().then((_) {
       _squishController.reverse();
     });
-    setState(() {
-      _overrideTired = !_overrideTired;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final effectiveMood = _overrideTired
-        ? NutritionPetMood.tired
-        : widget.mood;
+    final effectiveMood = widget.mood;
 
     final defaultSpeech = switch (effectiveMood) {
       NutritionPetMood.happy => '¡Nutrido y con energía! ✨',

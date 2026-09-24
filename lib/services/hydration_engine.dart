@@ -18,11 +18,16 @@ class HydrationEngine {
   final int maxIntervalMinutes;
   static const double maxReasonableMlPerHour = 2000;
 
-  int calculateDailyGoalInMl(double weight) {
+  int calculateDailyGoalInMl(double weight, {double height = 0}) {
     if (weight <= 0) {
       return 0;
     }
-    return (weight * 35).round();
+    double baseMl = weight * 35;
+    if (height > 0) {
+      // Stature adjustment: +2.5 ml per cm above 165 cm baseline
+      baseMl += (height - 165) * 2.5;
+    }
+    return baseMl.round().clamp(1000, 5000);
   }
 
   int calculateDailyGoalInGlasses(double dailyGoalInMl, int waterStep) {

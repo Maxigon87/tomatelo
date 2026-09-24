@@ -23,7 +23,6 @@ class HydrationPet extends StatefulWidget {
 class _HydrationPetState extends State<HydrationPet>
     with SingleTickerProviderStateMixin {
   late final AnimationController _squishController;
-  bool _overrideTired = false;
   bool _isBlinking = false;
   Timer? _blinkTimer;
 
@@ -68,16 +67,11 @@ class _HydrationPetState extends State<HydrationPet>
     _squishController.forward().then((_) {
       _squishController.reverse();
     });
-    setState(() {
-      _overrideTired = !_overrideTired;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final effectiveMood = _overrideTired
-        ? HydrationPetMood.tired
-        : widget.mood;
+    final effectiveMood = widget.mood;
 
     final defaultSpeech = switch (effectiveMood) {
       HydrationPetMood.happy => '¡Hidratado y feliz! ✨',
@@ -219,46 +213,6 @@ class _HydrationPetState extends State<HydrationPet>
                     color: effectiveMood == HydrationPetMood.tired
                         ? Colors.orangeAccent
                         : AppTheme.primaryAqua,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              // State Toggle Pill (Mascota Interactive Button)
-              InkWell(
-                onTap: _handleTap,
-                borderRadius: BorderRadius.circular(999),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceHighest,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.autorenew_rounded,
-                        size: 14,
-                        color: AppTheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _overrideTired
-                            ? 'Alternar a estado feliz'
-                            : 'Alternar a estado sediento',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ),

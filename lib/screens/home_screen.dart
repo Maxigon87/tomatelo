@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:confetti/confetti.dart';
+import 'package:tomatelo/main.dart';
 import 'package:tomatelo/models/nutrition_habit.dart';
 import 'package:tomatelo/screens/setup_screen.dart';
 import 'package:tomatelo/screens/inicio_screen.dart';
@@ -19,6 +21,7 @@ import 'package:tomatelo/widgets/nutrition_pet.dart';
 import 'package:tomatelo/widgets/nutrition_tracker_card.dart';
 import 'package:tomatelo/widgets/water_tracker_card.dart';
 import 'package:tomatelo/widgets/water_radial_gauge.dart';
+import 'package:tomatelo/widgets/water_timeline_chart.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -46,6 +49,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Map<String, int> _nutritionGoals = {};
   Map<String, int> _nutritionYesterday = {};
   List<int> _nutritionWeeklyData = List.filled(7, 0);
+  String _userName = '';
+  int _lives = 1;
+  String? _pendingLivesMessage;
 
   late final ConfettiController _confettiController;
   StreamSubscription<DocumentSnapshot>? _userSubscription;
@@ -124,18 +130,40 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _applyRemoteData(Map<String, dynamic> data) {
     final remoteGlasses = data['glassesToday'] as int?;
     final remoteGoal = data['dailyGoal'] as int?;
+    final remoteName = data['name'] as String?;
+    final remoteLives = (data['lives'] as num?)?.toInt();
     final remoteWeekly = (data['weeklyData'] as List?)?.map((e) => (e as num).toInt()).toList();
     final remoteHistory = (data['dailyHistory'] as Map?)?.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+    final remoteNutritionToday = data['nutritionToday'] is Map
+        ? _withDefaultNutritionValues(
+            Map<String, int>.from(
+              (data['nutritionToday'] as Map).map(
+                (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+              ),
+            ),
+          )
+        : null;
+    final remoteNutritionWeekly = (data['nutritionWeekly'] as List?)
+        ?.map((e) => (e as num).toInt())
+        .toList();
 
     if (!mounted) return;
     setState(() {
       if (remoteGlasses != null) _glassesToday = remoteGlasses;
       if (remoteGoal != null) _dailyGoal = remoteGoal;
+      if (remoteName != null) _userName = remoteName;
+      if (remoteLives != null) _lives = remoteLives;
       if (remoteWeekly != null && remoteWeekly.length == 7) {
         _weeklyData = remoteWeekly;
       }
       if (remoteHistory != null) {
         _dailyHistory = remoteHistory;
+      }
+      if (remoteNutritionToday != null) {
+        _nutritionToday = remoteNutritionToday;
+      }
+      if (remoteNutritionWeekly != null && remoteNutritionWeekly.length == 7) {
+        _nutritionWeeklyData = remoteNutritionWeekly;
       }
       _now = DateTime.now();
     });
@@ -146,6 +174,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await _syncWeekAndDay();
     await _syncFromWidget();
     await _loadData();
+
+    if (_pendingLivesMessage != null && mounted) {
+      final msg = _pendingLivesMessage!;
+      _pendingLivesMessage = null;
+      Future.microtask(() {
+        if (mounted) {
+          _showLivesInfoDialog(msg);
+        }
+      });
+    }
   }
 
   Future<void> _syncWeekAndDay() async {
@@ -155,14 +193,36 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     final storedLastReset = await _storageService.getLastReset();
     final storedWeekStart = await _storageService.getWeekStart();
+    final storedDailyGoal = await _storageService.getDailyGoal();
     var dailyHistory = await _storageService.getDailyHistory();
     var weeklyData = await _storageService.getWeeklyData();
+    var nutritionWeeklyData = await _storageService.getNutritionWeeklyData();
+
     if (weeklyData.length != 7) {
       weeklyData = List.filled(7, 0);
     }
+    if (nutritionWeeklyData.length != 7) {
+      nutritionWeeklyData = List.filled(7, 0);
+    }
 
-    if (storedWeekStart != mondayStr) {
+    final minMlForStreak = storedDailyGoal > 0 ? (storedDailyGoal * AppConstants.waterStep / 2).round() : AppConstants.waterStep;
+
+    if (storedWeekStart != null && storedWeekStart != mondayStr) {
+      // Comprobar si la semana anterior estuvo 100% completa (los 7 días al 50% o más)
+      final isFullWeekCompleted = weeklyData.length == 7 && weeklyData.every((ml) => ml >= minMlForStreak && ml > 0);
+      final lastAwarded = await _storageService.getLastAwardedWeek();
+
+      if (isFullWeekCompleted && lastAwarded != storedWeekStart) {
+        var currentLives = await _storageService.getLives();
+        currentLives++;
+        await _storageService.saveLives(currentLives);
+        await _storageService.saveLastAwardedWeek(storedWeekStart);
+        _pendingLivesMessage = "¡Semana perfecta completada! 🎉 Has ganado +1 Vida azul 💙. ¡Tu racha está más protegida que nunca!";
+      }
+
+      // La nueva semana comienza limpia de Lunes a Domingo
       weeklyData = List.filled(7, 0);
+      nutritionWeeklyData = List.filled(7, 0);
       await _storageService.saveWeekStart(mondayStr);
     }
 
@@ -171,12 +231,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
          storedLastReset.month != now.month ||
          storedLastReset.year != now.year)) {
       final storedGlasses = await _storageService.getGlassesToday();
+      final storedMl = storedGlasses * AppConstants.waterStep;
       final yesterdayKey = "${storedLastReset.year}-${storedLastReset.month.toString().padLeft(2, '0')}-${storedLastReset.day.toString().padLeft(2, '0')}";
-      dailyHistory[yesterdayKey] = storedGlasses * AppConstants.waterStep;
+      dailyHistory[yesterdayKey] = storedMl;
       await _storageService.saveDailyHistory(dailyHistory);
       await _storageService.saveGlassesYesterday(storedGlasses);
       await _storageService.saveGlassesToday(0);
       await _storageService.clearLastDrinkAt();
+
+      // Comprobar si el día de ayer cumplió el 50%
+      if (storedDailyGoal > 0 && storedMl < minMlForStreak) {
+        var currentLives = await _storageService.getLives();
+        if (currentLives > 0) {
+          currentLives = max(0, currentLives - 1);
+          await _storageService.saveLives(currentLives);
+          _pendingLivesMessage = "¡Tu vida azul te salvó! 💙 No alcanzaste la meta de agua ayer, pero consumiste 1 vida para proteger tu racha sin perder tus días.";
+        } else {
+          _pendingLivesMessage = "¡Te quedaste sin vidas! 💔 Al no alcanzar la meta del 50% ayer, tu racha de días se ha reiniciado. ¡Inicia una nueva racha hoy!";
+        }
+      }
 
       final storedNutritionToday = _withDefaultNutritionValues(
         await _storageService.getNutritionToday(),
@@ -184,15 +257,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final storedNutritionGoals = _withDefaultNutritionGoals(
         await _storageService.getNutritionGoals(),
       );
-      final nutritionWeeklyData = List<int>.from(
+      final nutWeekly = List<int>.from(
         await _storageService.getNutritionWeeklyData(),
       );
-      if (nutritionWeeklyData.length == 7) {
-        nutritionWeeklyData.removeAt(0);
-        nutritionWeeklyData.add(
+      if (nutWeekly.length == 7) {
+        nutWeekly.removeAt(0);
+        nutWeekly.add(
           _nutritionCompletedCount(storedNutritionToday, goals: storedNutritionGoals),
         );
-        await _storageService.saveNutritionWeeklyData(nutritionWeeklyData);
+        await _storageService.saveNutritionWeeklyData(nutWeekly);
       }
       await _storageService.saveNutritionYesterday(storedNutritionToday);
       await _storageService.saveNutritionToday(_emptyNutritionValues());
@@ -207,6 +280,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final todayIndex = now.weekday - 1;
     weeklyData[todayIndex] = currentGlasses * AppConstants.waterStep;
 
+    final currentNutritionToday = _withDefaultNutritionValues(
+      await _storageService.getNutritionToday(),
+    );
+    nutritionWeeklyData[todayIndex] = _nutritionCompletedCount(currentNutritionToday);
+
     for (int i = 0; i < todayIndex; i++) {
       final pastDate = DateTime(monday.year, monday.month, monday.day).add(Duration(days: i));
       final pastKey = "${pastDate.year}-${pastDate.month.toString().padLeft(2, '0')}-${pastDate.day.toString().padLeft(2, '0')}";
@@ -216,6 +294,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     await _storageService.saveWeeklyData(weeklyData);
+    await _storageService.saveNutritionWeeklyData(nutritionWeeklyData);
   }
 
   Future<void> _syncFromWidget() async {
@@ -251,6 +330,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadData() async {
+    final userData = await _storageService.getUserData();
     final glassesToday = await _storageService.getGlassesToday();
     final dailyGoal = await _storageService.getDailyGoal();
     final weeklyData = await _storageService.getWeeklyData();
@@ -264,6 +344,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final nutritionYesterday = _withDefaultNutritionValues(
       await _storageService.getNutritionYesterday(),
     );
+    final lives = await _storageService.getLives();
     final nutritionWeeklyData = await _storageService.getNutritionWeeklyData();
     if (storedGoals.isEmpty) {
       await _storageService.saveNutritionGoals(nutritionGoals);
@@ -271,6 +352,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     if (!mounted) return;
     setState(() {
+      if (userData != null) {
+        _userName = userData.name;
+      }
+      _lives = lives;
       _glassesToday = glassesToday;
       _dailyGoal = dailyGoal;
       _weeklyData = weeklyData;
@@ -285,6 +370,129 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _nutritionWeeklyData = nutritionWeeklyData;
     });
     await _updateWidget(_glassesToday, _dailyGoal);
+  }
+
+  String get _userInitials {
+    final trimmed = _userName.trim();
+    if (trimmed.isEmpty) return 'U';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length == 1) {
+      return parts[0].substring(0, 1).toUpperCase();
+    }
+    return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
+  }
+
+  void _showLivesDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppTheme.surfaceLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.favorite_rounded, color: AppTheme.primaryAqua, size: 28),
+              SizedBox(width: 10),
+              Text(
+                'Vidas de Racha 💙',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Tienes $_lives ${(_lives == 1) ? 'vida disponible' : 'vidas disponibles'} 💙',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.primaryAqua,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '• ¡Completa los 7 días de una semana entera (al 50% o más de tu meta de agua) y ganarás +1 Vida extra! 🏆\n\n'
+                '• Si un día no logras el 50% de tu objetivo, usarás 1 vida automáticamente para proteger tu racha sin perder tus días. 🔥\n\n'
+                '• Si te quedas sin vidas y no alcanzas el 50%, tu racha se reiniciará.',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: AppTheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                '¡Entendido!',
+                style: TextStyle(color: AppTheme.primaryAqua, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showLivesInfoDialog(String message) {
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppTheme.surfaceLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.favorite_rounded, color: AppTheme.primaryAqua, size: 26),
+              SizedBox(width: 10),
+              Text(
+                'Notificación de Racha',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            message,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppTheme.onSurface,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Aceptar',
+                style: TextStyle(color: AppTheme.primaryAqua, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   int get _upperHydrationLimit {
@@ -469,28 +677,66 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ],
             ),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.calendar_today_rounded, size: 20),
-                color: AppTheme.onSurfaceVariant,
-                onPressed: () {},
+              GestureDetector(
+                onTap: _showLivesDialog,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceLow,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: AppTheme.primaryAqua.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.favorite_rounded,
+                        color: AppTheme.primaryAqua,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$_lives',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.primaryAqua,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
-                width: 30,
-                height: 30,
+                width: 32,
+                height: 32,
                 decoration: const BoxDecoration(
                   color: AppTheme.primaryAqua,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.person_rounded,
-                  size: 18,
-                  color: Color(0xFF00354A),
+                alignment: Alignment.center,
+                child: Text(
+                  _userInitials,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF00354A),
+                  ),
                 ),
               ),
               const SizedBox(width: 4),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert_rounded, color: AppTheme.onSurfaceVariant),
-                onSelected: (value) {
+                color: AppTheme.surfaceHigh,
+                elevation: 10,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
+                onSelected: (value) async {
                   if (value == 'info') {
                     _showFriendlyMessage(
                       title: _pagePosition.value < 0.5
@@ -505,22 +751,51 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     return;
                   }
 
+                  if (value == 'theme') {
+                    final current = themeModeNotifier.value;
+                    final next = current == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+                    themeModeNotifier.value = next;
+                    await _storageService.saveThemeMode(next == ThemeMode.dark ? 'dark' : 'light');
+                    return;
+                  }
+
                   if (value == 'settings') {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const SetupScreen(
-                          skipAutoRedirect: true,
-                        ),
-                      ),
-                    );
+                    if (!mounted) return;
+                    final messenger = ScaffoldMessenger.of(context);
+                    final updated = await SetupScreen.showModal(context);
+                    if (updated == true && mounted) {
+                      await _loadData();
+                      if (mounted) {
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: const Row(
+                              children: [
+                                Icon(Icons.check_circle_rounded, color: AppTheme.tertiaryMint),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Meta de agua y recordatorios sincronizados 💧',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                            backgroundColor: AppTheme.surfaceHigh,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                        );
+                      }
+                    }
                   }
 
                   if (value == 'logout') {
-                    FirebaseAuth.instance.signOut();
-                    StorageService().clearAll();
-                    Navigator.of(context).pushAndRemoveUntil(
+                    if (!context.mounted) return;
+                    final navigator = Navigator.of(context);
+                    await FirebaseAuth.instance.signOut();
+                    await StorageService().clearAll();
+                    if (!context.mounted) return;
+                    navigator.pushAndRemoveUntil(
                       MaterialPageRoute(
-                        builder: (context) => const InicioScreen(),
+                        builder: (_) => const InicioScreen(),
                       ),
                       (route) => false,
                     );
@@ -530,24 +805,42 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   const PopupMenuItem<String>(
                     value: 'info',
                     child: ListTile(
-                      leading: Icon(Icons.info_outline_rounded),
-                      title: Text('Información'),
+                      leading: Icon(Icons.info_outline_rounded, color: AppTheme.primaryAqua),
+                      title: Text('Información', style: TextStyle(fontWeight: FontWeight.w600)),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'theme',
+                    child: ListTile(
+                      leading: Icon(
+                        themeModeNotifier.value == ThemeMode.dark
+                            ? Icons.light_mode_rounded
+                            : Icons.dark_mode_rounded,
+                        color: AppTheme.primaryAqua,
+                      ),
+                      title: Text(
+                        themeModeNotifier.value == ThemeMode.dark
+                            ? 'Modo Claro'
+                            : 'Modo Oscuro',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
                   const PopupMenuItem<String>(
                     value: 'settings',
                     child: ListTile(
-                      leading: Icon(Icons.settings_outlined),
-                      title: Text('Configuración'),
+                      leading: Icon(Icons.settings_outlined, color: AppTheme.primaryAqua),
+                      title: Text('Configuración', style: TextStyle(fontWeight: FontWeight.w600)),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
                   const PopupMenuItem<String>(
                     value: 'logout',
                     child: ListTile(
-                      leading: Icon(Icons.logout_rounded),
-                      title: Text('Cerrar sesión'),
+                      leading: Icon(Icons.logout_rounded, color: AppTheme.secondaryCoral),
+                      title: Text('Cerrar sesión', style: TextStyle(fontWeight: FontWeight.w600)),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
@@ -671,64 +964,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               weeklyData: _weeklyData,
             ),
             const SizedBox(height: 14),
-            // Teaser Card
-            InkWell(
-              onTap: () => _onSectionSelected(1),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceLow,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.06),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppTheme.secondaryCoral.withValues(alpha: 0.20),
-                      ),
-                      child: const Icon(
-                        Icons.spa_rounded,
-                        color: AppTheme.secondaryCoral,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '¿Buscas variedad de sabor?',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.onSurface,
-                            ),
-                          ),
-                          Text(
-                            'Suma agua celular con cítricos e infusiones',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.arrow_forward_rounded,
-                      color: AppTheme.primaryAqua,
-                      size: 18,
-                    ),
-                  ],
-                ),
+            // Guía de Tomar Agua (Camino ideal vs. Progreso real)
+            RepaintBoundary(
+              child: WaterTimelineChart(
+                dailyGoalMl: targetMl,
+                glassesToday: _glassesToday,
+                lastDrinkAt: _lastDrinkAt,
               ),
             ),
           ],
@@ -827,14 +1068,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _incrementNutritionHabit(NutritionHabit habit) {
+    final updatedToday = Map<String, int>.from(_nutritionToday)
+      ..[habit.id] = (_nutritionToday[habit.id] ?? 0) + 1;
+
+    final completedCount = _nutritionCompletedCount(updatedToday);
+    final now = DateTime.now();
+    final todayIndex = now.weekday - 1;
+    final newWeekly = List<int>.from(_nutritionWeeklyData);
+    if (newWeekly.length == 7) {
+      newWeekly[todayIndex] = completedCount;
+    }
+
     setState(() {
-      _nutritionToday = Map<String, int>.from(_nutritionToday)
-        ..[habit.id] = (_nutritionToday[habit.id] ?? 0) + 1;
+      _nutritionToday = updatedToday;
+      _nutritionWeeklyData = newWeekly;
     });
-    _storageService.saveNutritionToday(_nutritionToday);
+
+    _storageService.saveNutritionToday(updatedToday);
+    _storageService.saveNutritionWeeklyData(newWeekly);
 
     final goal = _nutritionGoals[habit.id] ?? habit.defaultGoal;
-    final count = _nutritionToday[habit.id] ?? 0;
+    final count = updatedToday[habit.id] ?? 0;
     if (count == goal) {
       _showFriendlyMessage(
         title: 'Hábito completado ${habit.emoji}',
@@ -850,6 +1104,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -857,11 +1112,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.96),
+                color: AppTheme.surfaceLow,
                 borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
+                    color: Colors.black.withValues(alpha: 0.35),
                     blurRadius: 24,
                     offset: const Offset(0, 12),
                   ),
@@ -871,16 +1129,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Objetivos saludables',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    style: TextStyle(
+                      fontSize: 18,
                       fontWeight: FontWeight.w800,
+                      color: AppTheme.onSurface,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
+                  const SizedBox(height: 4),
+                  const Text(
                     'Ajusta metas simples para tu día. Sin calorías ni presión.',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 18),
                   ...nutritionHabits.map((habit) {
@@ -894,10 +1157,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           Expanded(
                             child: Text(
                               habit.label,
-                              style: const TextStyle(fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.onSurface,
+                              ),
                             ),
                           ),
                           IconButton.filledTonal(
+                            style: IconButton.styleFrom(
+                              backgroundColor: AppTheme.surfaceContainer,
+                              foregroundColor: AppTheme.primaryAqua,
+                            ),
                             onPressed: value > 0
                                 ? () => setSheetState(() => draftGoals[habit.id] = value - 1)
                                 : null,
@@ -908,10 +1178,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             child: Text(
                               '$value',
                               textAlign: TextAlign.center,
-                              style: const TextStyle(fontWeight: FontWeight.w800),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.onSurface,
+                                fontSize: 16,
+                              ),
                             ),
                           ),
                           IconButton.filledTonal(
+                            style: IconButton.styleFrom(
+                              backgroundColor: AppTheme.surfaceContainer,
+                              foregroundColor: AppTheme.primaryAqua,
+                            ),
                             onPressed: value < 8
                                 ? () => setSheetState(() => draftGoals[habit.id] = value + 1)
                                 : null,
@@ -921,16 +1199,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                     );
                   }),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,
-                    child: FilledButton(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.secondaryCoral,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
                       onPressed: () {
                         setState(() => _nutritionGoals = _withDefaultNutritionGoals(draftGoals));
                         _storageService.saveNutritionGoals(_nutritionGoals);
                         Navigator.of(context).pop();
                       },
-                      child: const Text('Guardar objetivos'),
+                      child: const Text(
+                        'Guardar objetivos',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
                     ),
                   ),
                 ],
@@ -945,9 +1234,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   double _mlFromGlasses(int glasses) =>
       (glasses * AppConstants.waterStep).toDouble();
 
-  // La gota refleja en tiempo real el progreso de hidratación según Firebase y la hora del día.
-  // Si ha tomado suficiente agua para el avance del día, está feliz.
-  // Si no ha tomado agua suficiente a medida que avanza el día, está triste / sedienta.
+  // La gota refleja en tiempo real el progreso de hidratación según la hora del día.
+  // Si ha tomado suficiente agua para el avance esperado del día, está feliz.
+  // Si no ha tomado agua suficiente a medida que avanza el día, se pone triste / sedienta.
   HydrationPetMood get _petMood {
     if (_dailyGoal <= 0) return HydrationPetMood.happy;
     if (_glassesToday >= _dailyGoal) return HydrationPetMood.happy;
@@ -962,9 +1251,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final expectedFraction = (elapsedHours / totalActiveHours).clamp(0.0, 1.0);
     final expectedGlasses = _dailyGoal * expectedFraction;
 
-    // Con una tolerancia amable de medio vaso
-    if (_glassesToday >= (expectedGlasses - 0.5)) {
+    if (_glassesToday >= (expectedGlasses * 0.75)) {
       return HydrationPetMood.happy;
+    } else if (_glassesToday >= (expectedGlasses * 0.50)) {
+      return HydrationPetMood.normal;
     } else {
       return HydrationPetMood.tired;
     }
@@ -975,7 +1265,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final now = DateTime.now();
     DateTime checkDate = now;
 
-    if (_dailyGoal > 0 && _glassesToday >= _dailyGoal) {
+    // Se requiere al menos el 50% (la MITAD) del objetivo diario para sumar racha
+    final minGlassesForStreak = _dailyGoal > 0 ? (_dailyGoal / 2).ceil() : 1;
+
+    if (_dailyGoal > 0 && _glassesToday >= minGlassesForStreak) {
       streak++;
       checkDate = now.subtract(const Duration(days: 1));
     } else {
@@ -986,7 +1279,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final key = "${checkDate.year}-${checkDate.month.toString().padLeft(2, '0')}-${checkDate.day.toString().padLeft(2, '0')}";
       final ml = _dailyHistory[key] ?? 0;
       final glasses = (ml / AppConstants.waterStep).round();
-      if (_dailyGoal > 0 && glasses >= _dailyGoal) {
+      if (_dailyGoal > 0 && glasses >= minGlassesForStreak) {
         streak++;
         checkDate = checkDate.subtract(const Duration(days: 1));
       } else {
@@ -996,20 +1289,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return streak;
   }
 
+  // La manzana/fruta refleja la nutrición y salud según el momento del día y progreso.
+  // Si empezó bien pero ya es la tarde/noche y no consumió hábitos suficientes, se pone triste.
   NutritionPetMood get _nutritionPetMood {
-    final hour = DateTime.now().hour;
+    final now = DateTime.now();
     final progress = _nutritionProgress;
 
-    // Antes de las 12 (mañana): Feliz si ya empezó con algo
-    if (hour < 12) {
-      return progress > 0 ? NutritionPetMood.happy : NutritionPetMood.normal;
+    // Antes de las 8:00 AM, la mañana apenas comienza
+    if (now.hour < 8) return NutritionPetMood.happy;
+
+    // Jornada activa de 8:00 AM a 22:00 PM (14 horas activas)
+    final elapsedHours = (now.hour - 8) + (now.minute / 60.0);
+    const totalActiveHours = 14.0;
+    final expectedFraction = (elapsedHours / totalActiveHours).clamp(0.0, 1.0);
+
+    if (progress >= 1.0 || progress >= expectedFraction) {
+      return NutritionPetMood.happy;
     }
-    // Entre 12 y 20 (tarde): Feliz si va a mitad de camino
-    if (hour < 20) {
-      return progress >= 0.4 ? NutritionPetMood.happy : NutritionPetMood.normal;
+    if (progress >= (expectedFraction * 0.50)) {
+      return NutritionPetMood.normal;
     }
-    // Después de las 20 (noche): Triste si no cumplió la meta
-    return progress >= 0.8 ? NutritionPetMood.happy : NutritionPetMood.tired;
+    return NutritionPetMood.tired;
   }
 }
 

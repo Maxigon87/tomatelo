@@ -13,6 +13,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:home_widget/home_widget.dart';
 
+final ValueNotifier<ThemeMode> themeModeNotifier =
+    ValueNotifier<ThemeMode>(ThemeMode.dark);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
@@ -34,7 +37,7 @@ void main() async {
   try {
     await NotificationService.instance.initialize();
   } catch (e) {
-    debugPrint('NotificationService error: $e');
+    debugPrint('Schedule reminder error: $e');
   }
 
   final storageService = StorageService();
@@ -46,6 +49,10 @@ void main() async {
       onTimeout: () => debugPrint('Sync from Firestore timed out on startup'),
     );
   }
+
+  final savedThemeModeStr = await storageService.getThemeMode();
+  themeModeNotifier.value =
+      (savedThemeModeStr == 'light') ? ThemeMode.light : ThemeMode.dark;
 
   final userData = await storageService.getUserData();
   final dailyGoal = await storageService.getDailyGoal();
@@ -82,13 +89,18 @@ class TomateloApp extends StatelessWidget {
       initialScreen = const HomeScreen();
     }
 
-    return MaterialApp(
-      title: 'Tomatelo',
-      debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.system,
-      theme: AppTheme.lightTheme(),
-      darkTheme: AppTheme.darkTheme(),
-      home: initialScreen,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeModeNotifier,
+      builder: (context, currentMode, _) {
+        return MaterialApp(
+          title: 'Tomatelo',
+          debugShowCheckedModeBanner: false,
+          themeMode: currentMode,
+          theme: AppTheme.lightTheme(),
+          darkTheme: AppTheme.darkTheme(),
+          home: initialScreen,
+        );
+      },
     );
   }
 }

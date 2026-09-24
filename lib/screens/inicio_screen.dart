@@ -207,15 +207,24 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: AppTheme.surfaceHigh,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: AppTheme.surfaceLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
           title: const Row(
             children: [
               Icon(Icons.lock_reset_rounded, color: AppTheme.primaryAqua),
               SizedBox(width: 10),
               Text(
                 'Recuperar contraseña',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.onSurface,
+                ),
               ),
             ],
           ),

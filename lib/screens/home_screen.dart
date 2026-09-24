@@ -143,6 +143,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           )
         : null;
+    final remoteNutritionGoals = data['nutritionGoals'] is Map
+        ? _withDefaultNutritionGoals(
+            Map<String, int>.from(
+              (data['nutritionGoals'] as Map).map(
+                (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+              ),
+            ),
+          )
+        : null;
+    final remoteNutritionYesterday = data['nutritionYesterday'] is Map
+        ? _withDefaultNutritionValues(
+            Map<String, int>.from(
+              (data['nutritionYesterday'] as Map).map(
+                (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+              ),
+            ),
+          )
+        : null;
     final remoteNutritionWeekly = (data['nutritionWeekly'] as List?)
         ?.map((e) => (e as num).toInt())
         .toList();
@@ -161,6 +179,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
       if (remoteNutritionToday != null) {
         _nutritionToday = remoteNutritionToday;
+      }
+      if (remoteNutritionGoals != null) {
+        _nutritionGoals = remoteNutritionGoals;
+      }
+      if (remoteNutritionYesterday != null) {
+        _nutritionYesterday = remoteNutritionYesterday;
       }
       if (remoteNutritionWeekly != null && remoteNutritionWeekly.length == 7) {
         _nutritionWeeklyData = remoteNutritionWeekly;

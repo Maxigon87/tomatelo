@@ -12,8 +12,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Configuración de Hidratación'), findsOneWidget);
-    expect(find.text('Iniciar hidratación'), findsOneWidget);
+    expect(find.text('Configuración'), findsOneWidget);
+    expect(find.text('Guardar y Sincronizar'), findsOneWidget);
   });
 
   testWidgets('renders quick log pill card', (WidgetTester tester) async {

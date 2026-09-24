@@ -281,67 +281,6 @@ class _PetAnimationBody extends StatelessWidget {
   }
 
   // Zzz sleep bubbles
-  List<Widget> _buildZzz(double size, double tick) {
-    final particles = [
-      (x: -size * 0.35, y: -size * 0.25, size: 13.0, delay: 0.0),
-      (x: -size * 0.22, y: -size * 0.42, size: 17.0, delay: 0.33),
-      (x: -size * 0.42, y: -size * 0.58, size: 22.0, delay: 0.66),
-    ];
-
-    return particles.map((p) {
-      final progress = (tick + p.delay) % 1.0;
-      final opacity = (1.0 - progress).clamp(0.0, 1.0);
-      final floatY = -progress * 25.0;
-      final floatX = math.sin(progress * math.pi * 2) * 5.0;
-
-      return Positioned(
-        left: size / 2 + p.x + floatX,
-        top: size / 2 + p.y + floatY,
-        child: Opacity(
-          opacity: opacity * 0.75,
-          child: Text(
-            'Z',
-            style: TextStyle(
-              fontSize: p.size * (0.6 + progress * 0.5),
-              fontWeight: FontWeight.bold,
-              color: Colors.amber.shade200,
-            ),
-          ),
-        ),
-      );
-    }).toList();
-  }
-
-  // Floating celebration stars
-  List<Widget> _buildStars(double size, double tick) {
-    final particles = [
-      (x: -size * 0.48, y: -size * 0.34, emoji: '⭐', size: 18.0, delay: 0.0),
-      (x: size * 0.44, y: -size * 0.44, emoji: '✨', size: 16.0, delay: 0.25),
-      (x: -size * 0.12, y: -size * 0.62, emoji: '🌟', size: 20.0, delay: 0.5),
-      (x: size * 0.38, y: -size * 0.10, emoji: '✨', size: 14.0, delay: 0.75),
-    ];
-
-    return particles.map((p) {
-      final progress = (tick + p.delay) % 1.0;
-      final opacity = (1.0 - progress).clamp(0.0, 1.0);
-      final floatY = -progress * 28.0;
-      final floatX = math.cos(progress * math.pi * 2) * 4.0;
-
-      return Positioned(
-        left: size / 2 + p.x + floatX,
-        top: size / 2 + p.y + floatY,
-        child: Opacity(
-          opacity: opacity,
-          child: Text(
-            p.emoji,
-            style: TextStyle(
-              fontSize: p.size,
-            ),
-          ),
-        ),
-      );
-    }).toList();
-  }
 }
 
 class _PetFace extends StatelessWidget {

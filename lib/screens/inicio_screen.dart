@@ -806,39 +806,6 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 14),
-
-                            // Debug Mode Bypass Button
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (_) => const HomeScreen(),
-                                    ),
-                                  );
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppTheme.primaryAqua,
-                                  side: BorderSide(
-                                    color: AppTheme.primaryAqua.withValues(alpha: 0.35),
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(vertical: 11),
-                                ),
-                                icon: const Icon(Icons.bug_report_rounded, size: 18),
-                                label: const Text(
-                                  'Entrar (Debug)',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       ),

@@ -31,8 +31,14 @@ class StorageService {
   static const String _dailyHistoryKey = 'dailyHistory';
   static const String _weekStartKey = 'weekStart';
   static const String _livesKey = 'lives';
+  static const String _streakKey = 'streak';
+  static const String _lastStreakDateKey = 'lastStreakDate';
+  static const String _consumedFoodsTodayKey = 'consumedFoodsToday';
+  static const String _consumedFoodsYesterdayKey = 'consumedFoodsYesterday';
+  static const String _initialGiftGivenKey = 'initialGiftGiven';
   static const String _themeModeKey = 'themeMode';
   static const String _lastAwardedWeekKey = 'lastAwardedWeek';
+  static const String _drinkTimestampsKey = 'drinkTimestamps';
 
   DocumentReference? get _userDoc {
     final user = FirebaseAuth.instance.currentUser;
@@ -150,6 +156,21 @@ class StorageService {
       if (data.containsKey(_livesKey)) {
         await prefs.setInt(_livesKey, (data[_livesKey] as num).toInt());
       }
+      if (data.containsKey(_streakKey)) {
+        await prefs.setInt(_streakKey, (data[_streakKey] as num).toInt());
+      }
+      if (data.containsKey(_lastStreakDateKey)) {
+        await prefs.setString(_lastStreakDateKey, data[_lastStreakDateKey] as String);
+      }
+      if (data.containsKey(_consumedFoodsTodayKey)) {
+        await prefs.setString(_consumedFoodsTodayKey, jsonEncode(data[_consumedFoodsTodayKey]));
+      }
+      if (data.containsKey(_consumedFoodsYesterdayKey)) {
+        await prefs.setString(_consumedFoodsYesterdayKey, jsonEncode(data[_consumedFoodsYesterdayKey]));
+      }
+      if (data.containsKey(_initialGiftGivenKey)) {
+        await prefs.setBool(_initialGiftGivenKey, data[_initialGiftGivenKey] as bool);
+      }
       if (data.containsKey(_themeModeKey)) {
         await prefs.setString(_themeModeKey, data[_themeModeKey] as String);
       }
@@ -172,7 +193,76 @@ class StorageService {
 
   Future<int> getLives() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_livesKey) ?? 1;
+    return prefs.getInt(_livesKey) ?? 3;
+  }
+
+  Future<void> saveStreak(int streak) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_streakKey, streak);
+    await _syncToFirestore(_streakKey, streak);
+  }
+
+  Future<int> getStreak() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_streakKey) ?? 0;
+  }
+
+  Future<void> saveLastStreakDate(String date) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastStreakDateKey, date);
+    await _syncToFirestore(_lastStreakDateKey, date);
+  }
+
+  Future<String?> getLastStreakDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_lastStreakDateKey);
+  }
+
+  Future<void> saveConsumedFoodsToday(List<Map<String, dynamic>> foods) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_consumedFoodsTodayKey, jsonEncode(foods));
+    await _syncToFirestore(_consumedFoodsTodayKey, foods);
+  }
+
+  Future<List<Map<String, dynamic>>> getConsumedFoodsToday() async {
+    final prefs = await SharedPreferences.getInstance();
+    final str = prefs.getString(_consumedFoodsTodayKey);
+    if (str == null || str.isEmpty) return [];
+    try {
+      final list = jsonDecode(str) as List<dynamic>;
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> saveConsumedFoodsYesterday(List<Map<String, dynamic>> foods) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_consumedFoodsYesterdayKey, jsonEncode(foods));
+    await _syncToFirestore(_consumedFoodsYesterdayKey, foods);
+  }
+
+  Future<List<Map<String, dynamic>>> getConsumedFoodsYesterday() async {
+    final prefs = await SharedPreferences.getInstance();
+    final str = prefs.getString(_consumedFoodsYesterdayKey);
+    if (str == null || str.isEmpty) return [];
+    try {
+      final list = jsonDecode(str) as List<dynamic>;
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<bool> hasGivenInitialGift() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_initialGiftGivenKey) ?? false;
+  }
+
+  Future<void> setInitialGiftGiven() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_initialGiftGivenKey, true);
+    await _syncToFirestore(_initialGiftGivenKey, true);
   }
 
   Future<void> saveThemeMode(String mode) async {
@@ -225,6 +315,17 @@ class StorageService {
   Future<String?> getWeekStart() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_weekStartKey);
+  }
+
+  Future<void> saveDrinkTimestamps(List<String> timestamps) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_drinkTimestampsKey, timestamps);
+    await _syncToFirestore(_drinkTimestampsKey, timestamps);
+  }
+
+  Future<List<String>> getDrinkTimestamps() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_drinkTimestampsKey) ?? [];
   }
 
   Future<void> saveNutritionToday(Map<String, int> habits) async {

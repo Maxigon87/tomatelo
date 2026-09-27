@@ -10,6 +10,7 @@ class WaterTimelineChart extends StatefulWidget {
   final int dailyGoalMl;
   final int glassesToday;
   final DateTime? lastDrinkAt;
+  final List<DateTime>? drinkTimestamps;
   final int startHour;
   final int endHour;
 
@@ -18,6 +19,7 @@ class WaterTimelineChart extends StatefulWidget {
     required this.dailyGoalMl,
     required this.glassesToday,
     this.lastDrinkAt,
+    this.drinkTimestamps,
     this.startHour = 7,
     this.endHour = 23,
   });
@@ -276,6 +278,7 @@ class _WaterTimelineChartState extends State<WaterTimelineChart>
                   startHour: widget.startHour,
                   endHour: widget.endHour,
                   actualColor: statusColor,
+                  drinkTimestamps: widget.drinkTimestamps,
                 ),
               );
             },
@@ -329,6 +332,7 @@ class _TimelineChartPainter extends CustomPainter {
   final int startHour;
   final int endHour;
   final Color actualColor;
+  final List<DateTime>? drinkTimestamps;
 
   _TimelineChartPainter({
     required this.animValue,
@@ -339,6 +343,7 @@ class _TimelineChartPainter extends CustomPainter {
     required this.startHour,
     required this.endHour,
     required this.actualColor,
+    this.drinkTimestamps,
   });
 
   @override
@@ -390,7 +395,6 @@ class _TimelineChartPainter extends CustomPainter {
     final idealPath = Path();
     idealPath.moveTo(0, mlToY(0));
 
-    // Curva S suave para el objetivo ideal durante el día
     final stepsCount = 20;
     for (int i = 1; i <= stepsCount; i++) {
       final t = i / stepsCount;
@@ -409,23 +413,68 @@ class _TimelineChartPainter extends CustomPainter {
     canvas.drawPath(idealFillPath, idealFillPaint);
     canvas.drawPath(idealPath, idealPaint);
 
-    // 2. DIBUJAR LÍNEA REAL ("Por dónde voy realmente")
+    // 2. DIBUJAR LÍNEA REAL CON PICOS DE CONSUMO DE AGUA ("Por dónde voy realmente")
     final nowX = hourToX(currentHourFraction);
-    final actualY = mlToY(actualMl * animValue);
+
+    // Extraer o generar horas de eventos de consumo
+    final List<double> eventHours = [];
+    if (drinkTimestamps != null && drinkTimestamps!.isNotEmpty) {
+      for (final dt in drinkTimestamps!) {
+        final h = dt.hour + (dt.minute / 60.0);
+        if (h >= startHour && h <= endHour) {
+          eventHours.add(h);
+        }
+      }
+      eventHours.sort();
+    }
+
+    // Si no hay timestamps grabados pero hay vasos consumidos hoy, sintetizamos horas para generar los picos
+    if (eventHours.isEmpty && actualMl > 0) {
+      final totalGlasses = (actualMl / AppConstants.waterStep).round().clamp(1, 20);
+      final hourSpan = (currentHourFraction - startHour).clamp(0.5, 16.0);
+      final interval = hourSpan / (totalGlasses + 1);
+      for (int i = 1; i <= totalGlasses; i++) {
+        eventHours.add(startHour + (interval * i));
+      }
+    }
+
+    final int totalEvents = eventHours.length;
+    final double mlPerEvent = totalEvents > 0 ? (actualMl / totalEvents).toDouble() : (AppConstants.waterStep).toDouble();
+
+    // Función que calcula los ml acumulados en cualquier hora dada (creando picos suaves en los momentos de hidratación)
+    double getMlAtHour(double hour) {
+      if (totalEvents == 0 || actualMl == 0) return 0;
+      double accumulatedMl = 0;
+      for (final evHour in eventHours) {
+        final diff = hour - evHour;
+        if (diff < -0.3) {
+          // Aún no ocurrió
+          accumulatedMl += 0;
+        } else if (diff > 0.3) {
+          // Ya ocurrió por completo
+          accumulatedMl += mlPerEvent;
+        } else {
+          // Transición suave (pico de consumo)
+          final progress = ((diff + 0.3) / 0.6).clamp(0.0, 1.0);
+          final smoothProgress = progress * progress * (3 - 2 * progress); // Sigmoide S-Curve
+          accumulatedMl += mlPerEvent * smoothProgress;
+        }
+      }
+      return accumulatedMl.clamp(0.0, actualMl.toDouble());
+    }
 
     final actualPath = Path();
     actualPath.moveTo(0, mlToY(0));
 
-    // Construimos una curva progresiva real hasta la hora actual
-    final currentHourRatio = ((currentHourFraction - startHour) / hourRange).clamp(0.0, 1.0);
-    final pointsCount = 10;
-    for (int i = 1; i <= pointsCount; i++) {
-      final t = (i / pointsCount) * currentHourRatio;
+    const sampleSteps = 60;
+    final currentRatio = ((currentHourFraction - startHour) / hourRange).clamp(0.0, 1.0);
+
+    for (int i = 1; i <= sampleSteps; i++) {
+      final t = (i / sampleSteps) * currentRatio;
       final hour = startHour + (hourRange * t);
       final x = hourToX(hour);
-      // Simula progresión gradual hacia el valor actual acumulado
-      final currentActual = actualMl * (t / (currentHourRatio > 0 ? currentHourRatio : 1.0));
-      final y = mlToY(currentActual * animValue);
+      final currentMl = getMlAtHour(hour);
+      final y = mlToY(currentMl * animValue);
       actualPath.lineTo(x, y);
     }
 
@@ -460,6 +509,27 @@ class _TimelineChartPainter extends CustomPainter {
     canvas.drawPath(actualPath, actualGlowPaint);
     canvas.drawPath(actualPath, actualLinePaint);
 
+    // Dibujar puntos brillantes de pico (Picos de Agua) en las horas exactas de consumo
+    for (final evHour in eventHours) {
+      if (evHour <= currentHourFraction) {
+        final evX = hourToX(evHour);
+        final evMl = getMlAtHour(evHour);
+        final evY = mlToY(evMl * animValue);
+
+        final peakDotOuter = Paint()
+          ..color = AppTheme.tertiaryMint
+          ..style = PaintingStyle.fill
+          ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 4);
+
+        final peakDotInner = Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.fill;
+
+        canvas.drawCircle(Offset(evX, evY), 4.5, peakDotOuter);
+        canvas.drawCircle(Offset(evX, evY), 2.5, peakDotInner);
+      }
+    }
+
     // 3. INDICADOR VERTICAL DE "AHORA"
     final nowLinePaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.4)
@@ -473,6 +543,7 @@ class _TimelineChartPainter extends CustomPainter {
     );
 
     // Punto brillante de la posición actual
+    final actualY = mlToY(getMlAtHour(currentHourFraction) * animValue);
     final dotOuterPaint = Paint()
       ..color = actualColor
       ..style = PaintingStyle.fill

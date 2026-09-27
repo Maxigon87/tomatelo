@@ -50,7 +50,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Map<String, int> _nutritionYesterday = {};
   List<int> _nutritionWeeklyData = List.filled(7, 0);
   String _userName = '';
-  int _lives = 1;
+  int _lives = 3;
+  int _storedStreak = 0;
+  List<Map<String, dynamic>> _consumedFoodsToday = [];
+  List<Map<String, dynamic>> _consumedFoodsYesterday = [];
+  List<String> _drinkTimestamps = [];
   String? _pendingLivesMessage;
 
   late final ConfettiController _confettiController;
@@ -164,6 +168,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final remoteNutritionWeekly = (data['nutritionWeekly'] as List?)
         ?.map((e) => (e as num).toInt())
         .toList();
+    final remoteStreak = (data['streak'] as num?)?.toInt();
 
     if (!mounted) return;
     setState(() {
@@ -171,6 +176,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (remoteGoal != null) _dailyGoal = remoteGoal;
       if (remoteName != null) _userName = remoteName;
       if (remoteLives != null) _lives = remoteLives;
+      if (remoteStreak != null) _storedStreak = remoteStreak;
       if (remoteWeekly != null && remoteWeekly.length == 7) {
         _weeklyData = remoteWeekly;
       }
@@ -231,13 +237,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     final minMlForStreak = storedDailyGoal > 0 ? (storedDailyGoal * AppConstants.waterStep / 2).round() : AppConstants.waterStep;
 
+    final hasGift = await _storageService.hasGivenInitialGift();
+    var currentLives = await _storageService.getLives();
+    if (!hasGift || currentLives < 3) {
+      currentLives = 3;
+      await _storageService.saveLives(3);
+      await _storageService.setInitialGiftGiven();
+    }
+
     if (storedWeekStart != null && storedWeekStart != mondayStr) {
       // Comprobar si la semana anterior estuvo 100% completa (los 7 días al 50% o más)
       final isFullWeekCompleted = weeklyData.length == 7 && weeklyData.every((ml) => ml >= minMlForStreak && ml > 0);
       final lastAwarded = await _storageService.getLastAwardedWeek();
 
       if (isFullWeekCompleted && lastAwarded != storedWeekStart) {
-        var currentLives = await _storageService.getLives();
         currentLives++;
         await _storageService.saveLives(currentLives);
         await _storageService.saveLastAwardedWeek(storedWeekStart);
@@ -250,6 +263,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await _storageService.saveWeekStart(mondayStr);
     }
 
+    int storedStreak = await _storageService.getStreak();
+
     if (storedLastReset != null &&
         (storedLastReset.day != now.day ||
          storedLastReset.month != now.month ||
@@ -261,19 +276,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await _storageService.saveDailyHistory(dailyHistory);
       await _storageService.saveGlassesYesterday(storedGlasses);
       await _storageService.saveGlassesToday(0);
+      await _storageService.saveDrinkTimestamps([]);
       await _storageService.clearLastDrinkAt();
-
-      // Comprobar si el día de ayer cumplió el 50%
-      if (storedDailyGoal > 0 && storedMl < minMlForStreak) {
-        var currentLives = await _storageService.getLives();
-        if (currentLives > 0) {
-          currentLives = max(0, currentLives - 1);
-          await _storageService.saveLives(currentLives);
-          _pendingLivesMessage = "¡Tu vida azul te salvó! 💙 No alcanzaste la meta de agua ayer, pero consumiste 1 vida para proteger tu racha sin perder tus días.";
-        } else {
-          _pendingLivesMessage = "¡Te quedaste sin vidas! 💔 Al no alcanzar la meta del 50% ayer, tu racha de días se ha reiniciado. ¡Inicia una nueva racha hoy!";
-        }
-      }
 
       final storedNutritionToday = _withDefaultNutritionValues(
         await _storageService.getNutritionToday(),
@@ -281,14 +285,66 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final storedNutritionGoals = _withDefaultNutritionGoals(
         await _storageService.getNutritionGoals(),
       );
+
+      // Comprobar si el día de ayer cumplió al menos el 50% de los retos (agua o alimentación)
+      final waterGoalMet = storedDailyGoal > 0 && storedMl >= minMlForStreak;
+      final nutritionGoalTotal = storedNutritionGoals.values.fold(0, (a, b) => a + b);
+      final minNutritionForStreak = nutritionGoalTotal > 0 ? (nutritionGoalTotal / 2).ceil() : 0;
+      final nutritionCount = _nutritionCompletedCount(storedNutritionToday, goals: storedNutritionGoals);
+      final nutritionGoalMet = nutritionGoalTotal > 0 && nutritionCount >= minNutritionForStreak;
+      final challengesMet = waterGoalMet || nutritionGoalMet;
+
+      final lastResetDate = DateTime(storedLastReset.year, storedLastReset.month, storedLastReset.day);
+      final nowDate = DateTime(now.year, now.month, now.day);
+      final daysDiff = nowDate.difference(lastResetDate).inDays;
+
+      if (challengesMet) {
+        storedStreak++;
+        if (daysDiff > 1) {
+          final missedDays = daysDiff - 1;
+          for (int d = 0; d < missedDays; d++) {
+            if (currentLives > 0) {
+              currentLives--;
+            } else {
+              storedStreak = 0;
+            }
+          }
+        }
+      } else {
+        if (currentLives > 0) {
+          currentLives = max(0, currentLives - 1);
+          _pendingLivesMessage = "¡Tu vida te salvó! 💙 Ayer no alcanzaste la mitad de los retos, pero se usó 1 vida para proteger tu racha sin perder tus días.";
+        } else {
+          storedStreak = 0;
+          _pendingLivesMessage = "¡Te quedaste sin vidas! 💔 Al no alcanzar el 50% de los retos de ayer, tu racha se ha reiniciado. ¡Inicia una nueva racha hoy!";
+        }
+        if (daysDiff > 1) {
+          final missedDays = daysDiff - 1;
+          for (int d = 0; d < missedDays; d++) {
+            if (currentLives > 0) {
+              currentLives--;
+            } else {
+              storedStreak = 0;
+            }
+          }
+        }
+      }
+
+      await _storageService.saveLives(currentLives);
+      await _storageService.saveStreak(storedStreak);
+      await _storageService.saveLastStreakDate("${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}");
+
+      // Pasar alimentos consumidos de hoy a ayer
+      final consumedToday = await _storageService.getConsumedFoodsToday();
+      await _storageService.saveConsumedFoodsYesterday(consumedToday);
+      await _storageService.saveConsumedFoodsToday([]);
+
       final nutWeekly = List<int>.from(
         await _storageService.getNutritionWeeklyData(),
       );
       if (nutWeekly.length == 7) {
         nutWeekly.removeAt(0);
-        nutWeekly.add(
-          _nutritionCompletedCount(storedNutritionToday, goals: storedNutritionGoals),
-        );
+        nutWeekly.add(nutritionCount);
         await _storageService.saveNutritionWeeklyData(nutWeekly);
       }
       await _storageService.saveNutritionYesterday(storedNutritionToday);
@@ -298,6 +354,43 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } else if (storedLastReset == null) {
       await _storageService.saveLastReset(now);
       await _storageService.saveWeekStart(mondayStr);
+      await _storageService.saveLives(3);
+      await _storageService.setInitialGiftGiven();
+      await _storageService.saveStreak(0);
+      await _storageService.saveLastStreakDate("${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}");
+    } else {
+      // Mismo día: evaluar si ayer no se había evaluado la racha
+      final lastStreakDate = await _storageService.getLastStreakDate();
+      final todayStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+      if (lastStreakDate != todayStr) {
+        final yesterdayGlasses = await _storageService.getGlassesYesterday();
+        final yesterdayMl = yesterdayGlasses * AppConstants.waterStep;
+        final yesterdayNutrition = _withDefaultNutritionValues(
+          await _storageService.getNutritionYesterday(),
+        );
+        final storedNutritionGoals = _withDefaultNutritionGoals(
+          await _storageService.getNutritionGoals(),
+        );
+        final waterGoalMet = storedDailyGoal > 0 && yesterdayMl >= minMlForStreak;
+        final nutritionGoalTotal = storedNutritionGoals.values.fold(0, (a, b) => a + b);
+        final minNutritionForStreak = nutritionGoalTotal > 0 ? (nutritionGoalTotal / 2).ceil() : 0;
+        final nutritionCount = _nutritionCompletedCount(yesterdayNutrition, goals: storedNutritionGoals);
+        final nutritionGoalMet = nutritionGoalTotal > 0 && nutritionCount >= minNutritionForStreak;
+        final challengesMet = waterGoalMet || nutritionGoalMet;
+
+        if (!challengesMet) {
+          if (currentLives > 0) {
+            currentLives = max(0, currentLives - 1);
+            _pendingLivesMessage = "¡Tu vida te salvó! 💙 Ayer no alcanzaste la mitad de los retos, pero se usó 1 vida para proteger tu racha sin perder tus días.";
+          } else {
+            storedStreak = 0;
+            _pendingLivesMessage = "¡Te quedaste sin vidas! 💔 Al no alcanzar el 50% de los retos de ayer, tu racha se ha reiniciado. ¡Inicia una nueva racha hoy!";
+          }
+          await _storageService.saveLives(currentLives);
+          await _storageService.saveStreak(storedStreak);
+        }
+        await _storageService.saveLastStreakDate(todayStr);
+      }
     }
 
     final currentGlasses = await _storageService.getGlassesToday();
@@ -369,6 +462,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await _storageService.getNutritionYesterday(),
     );
     final lives = await _storageService.getLives();
+    final storedStreak = await _storageService.getStreak();
+    final consumedToday = await _storageService.getConsumedFoodsToday();
+    final consumedYesterday = await _storageService.getConsumedFoodsYesterday();
+    final drinkTimestamps = await _storageService.getDrinkTimestamps();
     final nutritionWeeklyData = await _storageService.getNutritionWeeklyData();
     if (storedGoals.isEmpty) {
       await _storageService.saveNutritionGoals(nutritionGoals);
@@ -380,6 +477,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _userName = userData.name;
       }
       _lives = lives;
+      _storedStreak = storedStreak;
+      _consumedFoodsToday = consumedToday;
+      _consumedFoodsYesterday = consumedYesterday;
+      _drinkTimestamps = drinkTimestamps;
       _glassesToday = glassesToday;
       _dailyGoal = dailyGoal;
       _weeklyData = weeklyData;
@@ -560,10 +661,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final updatedHistory = Map<String, int>.from(_dailyHistory);
     updatedHistory[todayKey] = newGlasses * AppConstants.waterStep;
 
+    final updatedTimestamps = List<String>.from(_drinkTimestamps)..add(now.toIso8601String());
+
     setState(() {
       _glassesToday = newGlasses;
       _weeklyData = newWeekly;
       _dailyHistory = updatedHistory;
+      _drinkTimestamps = updatedTimestamps;
       _dropTrigger = !_dropTrigger;
       _now = now;
       _lastDrinkAt = _now;
@@ -572,6 +676,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _storageService.saveGlassesToday(_glassesToday);
     _storageService.saveWeeklyData(newWeekly);
     _storageService.saveDailyHistory(updatedHistory);
+    _storageService.saveDrinkTimestamps(updatedTimestamps);
     _storageService.saveLastDrinkAt(_lastDrinkAt!);
     _updateWidget(_glassesToday, _dailyGoal);
 
@@ -617,10 +722,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final updatedHistory = Map<String, int>.from(_dailyHistory);
     updatedHistory[todayKey] = newGlasses * AppConstants.waterStep;
 
+    final updatedTimestamps = List<String>.from(_drinkTimestamps);
+    if (updatedTimestamps.isNotEmpty) {
+      updatedTimestamps.removeLast();
+    }
+
     setState(() {
       _glassesToday = newGlasses;
       _weeklyData = newWeekly;
       _dailyHistory = updatedHistory;
+      _drinkTimestamps = updatedTimestamps;
       _now = now;
       if (_glassesToday < _dailyGoal) {
         _goalCelebrated = false;
@@ -636,6 +747,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await _storageService.saveGlassesToday(_glassesToday);
     await _storageService.saveWeeklyData(newWeekly);
     await _storageService.saveDailyHistory(updatedHistory);
+    await _storageService.saveDrinkTimestamps(updatedTimestamps);
     if (_lastDrinkAt == null) {
       await _storageService.clearLastDrinkAt();
     }
@@ -690,7 +802,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  position < 0.5 ? 'Agua Pura' : 'Frutas & Té',
+                  position < 0.5 ? 'Agua Pura' : 'Alimentación',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -994,6 +1106,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 dailyGoalMl: targetMl,
                 glassesToday: _glassesToday,
                 lastDrinkAt: _lastDrinkAt,
+                drinkTimestamps: _drinkTimestamps.map((s) => DateTime.parse(s)).toList(),
               ),
             ),
           ],
@@ -1038,6 +1151,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               onOpenGoals: _showNutritionGoalsSheet,
               yesterdayData: _nutritionYesterday,
               weeklyData: _nutritionWeeklyData,
+              consumedToday: _consumedFoodsToday,
+              consumedYesterday: _consumedFoodsYesterday,
+              onAddFood: _addFoodEntry,
+              onRemoveFood: _removeFoodEntry,
             ),
           ],
         ),
@@ -1110,16 +1227,56 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     _storageService.saveNutritionToday(updatedToday);
     _storageService.saveNutritionWeeklyData(newWeekly);
+  }
 
-    final goal = _nutritionGoals[habit.id] ?? habit.defaultGoal;
-    final count = updatedToday[habit.id] ?? 0;
-    if (count == goal) {
-      _showFriendlyMessage(
-        title: 'Hábito completado ${habit.emoji}',
-        message: '¡Qué lindo! Ya sumaste ${habit.label.toLowerCase()} hoy. Seguimos suave, sin presión.',
-        icon: habit.icon,
-        color: const Color(0xFF7CB342),
-      );
+  void _addFoodEntry(CatalogFoodItem item) {
+    final now = DateTime.now();
+    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final entry = {
+      'id': item.id,
+      'name': item.name,
+      'category': item.categoryLabel,
+      'portion': item.portion,
+      'emoji': item.emoji,
+      'habitId': item.habitId,
+      'time': timeStr,
+      'timestamp': now.toIso8601String(),
+    };
+
+    final updated = List<Map<String, dynamic>>.from(_consumedFoodsToday)..insert(0, entry);
+    setState(() {
+      _consumedFoodsToday = updated;
+    });
+    _storageService.saveConsumedFoodsToday(updated);
+  }
+
+  void _removeFoodEntry(int index) {
+    if (index < 0 || index >= _consumedFoodsToday.length) return;
+    final item = _consumedFoodsToday[index];
+    final habitId = item['habitId']?.toString();
+
+    final updated = List<Map<String, dynamic>>.from(_consumedFoodsToday)..removeAt(index);
+    setState(() {
+      _consumedFoodsToday = updated;
+    });
+    _storageService.saveConsumedFoodsToday(updated);
+
+    if (habitId != null && (_nutritionToday[habitId] ?? 0) > 0) {
+      final updatedToday = Map<String, int>.from(_nutritionToday)
+        ..[habitId] = (_nutritionToday[habitId] ?? 1) - 1;
+      final completedCount = _nutritionCompletedCount(updatedToday);
+      final now = DateTime.now();
+      final todayIndex = now.weekday - 1;
+      final newWeekly = List<int>.from(_nutritionWeeklyData);
+      if (newWeekly.length == 7) {
+        newWeekly[todayIndex] = completedCount;
+      }
+      setState(() {
+        _nutritionToday = updatedToday;
+        _nutritionWeeklyData = newWeekly;
+      });
+      _storageService.saveNutritionToday(updatedToday);
+      _storageService.saveNutritionWeeklyData(newWeekly);
     }
   }
 
@@ -1285,32 +1442,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   int get _waterStreak {
-    int streak = 0;
-    final now = DateTime.now();
-    DateTime checkDate = now;
-
-    // Se requiere al menos el 50% (la MITAD) del objetivo diario para sumar racha
+    // Se requiere al menos el 50% (la MITAD) del objetivo diario (agua o alimentación) para sumar hoy a la racha
     final minGlassesForStreak = _dailyGoal > 0 ? (_dailyGoal / 2).ceil() : 1;
+    final waterMetToday = _dailyGoal > 0 && _glassesToday >= minGlassesForStreak;
+    final minNutritionForStreak = _nutritionGoalTotal > 0 ? (_nutritionGoalTotal / 2).ceil() : 1;
+    final nutritionMetToday = _nutritionGoalTotal > 0 && _nutritionCompleted >= minNutritionForStreak;
 
-    if (_dailyGoal > 0 && _glassesToday >= minGlassesForStreak) {
-      streak++;
-      checkDate = now.subtract(const Duration(days: 1));
-    } else {
-      checkDate = now.subtract(const Duration(days: 1));
+    if (waterMetToday || nutritionMetToday) {
+      return _storedStreak + 1;
     }
-
-    while (true) {
-      final key = "${checkDate.year}-${checkDate.month.toString().padLeft(2, '0')}-${checkDate.day.toString().padLeft(2, '0')}";
-      final ml = _dailyHistory[key] ?? 0;
-      final glasses = (ml / AppConstants.waterStep).round();
-      if (_dailyGoal > 0 && glasses >= minGlassesForStreak) {
-        streak++;
-        checkDate = checkDate.subtract(const Duration(days: 1));
-      } else {
-        break;
-      }
-    }
-    return streak;
+    return _storedStreak;
   }
 
   // La manzana/fruta refleja la nutrición y salud según el momento del día y progreso.
@@ -1419,7 +1560,7 @@ class _SectionPill extends StatelessWidget {
           ),
           Expanded(
             child: _PillItem(
-              label: 'Frutas & Té',
+              label: 'Alimentación',
               icon: Icons.eco_rounded,
               selected: pagePosition >= 0.5,
               activeColor: AppTheme.secondaryCoral,

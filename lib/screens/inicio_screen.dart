@@ -5,6 +5,7 @@ import 'package:tomatelo/screens/setup_screen.dart';
 import 'package:tomatelo/screens/home_screen.dart';
 import 'package:tomatelo/services/storage_service.dart';
 import 'package:tomatelo/theme/app_theme.dart';
+import 'package:tomatelo/utils/validators.dart';
 import 'package:tomatelo/widgets/tomatelo_logo.dart';
 
 /// Screen 2: Iniciar Sesión / Registro - TOMÁTELO (Stitch Design System)
@@ -260,7 +261,7 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || !value.contains('@')) {
+                    if (value == null || !Validators.isValidEmail(value)) {
                       return 'Ingresa un correo válido';
                     }
                     return null;
@@ -574,7 +575,7 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
                                 if (value == null || value.trim().isEmpty) {
                                   return 'Por favor ingresa tu correo';
                                 }
-                                if (!value.contains('@')) {
+                                if (!Validators.isValidEmail(value)) {
                                   return 'Correo no válido';
                                 }
                                 return null;

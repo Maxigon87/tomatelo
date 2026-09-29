@@ -26,12 +26,13 @@ class _HydrationPetState extends State<HydrationPet>
   late final AnimationController _floatController;
   late final Animation<double> _floatAnim;
   late final Animation<double> _glowAnim;
-  bool _isBlinking = false;
+  late final ValueNotifier<bool> _isBlinkingNotifier;
   Timer? _blinkTimer;
 
   @override
   void initState() {
     super.initState();
+    _isBlinkingNotifier = ValueNotifier(false);
     _squishController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 350),
@@ -66,14 +67,10 @@ class _HydrationPetState extends State<HydrationPet>
   void _startBlinkTimer() {
     _blinkTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (mounted) {
-        setState(() {
-          _isBlinking = true;
-        });
+        _isBlinkingNotifier.value = true;
         Future.delayed(const Duration(milliseconds: 180), () {
           if (mounted) {
-            setState(() {
-              _isBlinking = false;
-            });
+            _isBlinkingNotifier.value = false;
           }
         });
       }
@@ -85,6 +82,7 @@ class _HydrationPetState extends State<HydrationPet>
     _blinkTimer?.cancel();
     _floatController.dispose();
     _squishController.dispose();
+    _isBlinkingNotifier.dispose();
     super.dispose();
   }
 
@@ -199,11 +197,18 @@ class _HydrationPetState extends State<HydrationPet>
                       ),
                     ],
                       // Vector Body
-                      CustomPaint(
-                        size: Size(widget.size, widget.size),
-                        painter: _GotitaPainter(
-                          mood: effectiveMood,
-                          isBlinking: _isBlinking,
+                      RepaintBoundary(
+                        child: ValueListenableBuilder<bool>(
+                          valueListenable: _isBlinkingNotifier,
+                          builder: (context, isBlinking, child) {
+                            return CustomPaint(
+                              size: Size(widget.size, widget.size),
+                              painter: _GotitaPainter(
+                                mood: effectiveMood,
+                                isBlinking: isBlinking,
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],

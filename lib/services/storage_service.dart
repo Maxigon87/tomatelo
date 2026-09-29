@@ -248,7 +248,25 @@ class StorageService {
     if (str == null || str.isEmpty) return [];
     try {
       final list = jsonDecode(str) as List<dynamic>;
-      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final now = DateTime.now();
+      final yesterdayDate = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
+
+      final result = <Map<String, dynamic>>[];
+      for (final item in list) {
+        final map = Map<String, dynamic>.from(item as Map);
+        final tsStr = map['timestamp']?.toString();
+        if (tsStr != null) {
+          final ts = DateTime.tryParse(tsStr);
+          if (ts != null) {
+            final itemDate = DateTime(ts.year, ts.month, ts.day);
+            if (itemDate != yesterdayDate) {
+              continue; // Exclude items logged on days other than yesterday
+            }
+          }
+        }
+        result.add(map);
+      }
+      return result;
     } catch (_) {
       return [];
     }

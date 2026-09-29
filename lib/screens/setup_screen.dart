@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:tomatelo/models/user_data.dart';
 import 'package:tomatelo/screens/home_screen.dart';
 import 'package:tomatelo/services/hydration_engine.dart';
@@ -29,9 +30,9 @@ class SetupScreen extends StatefulWidget {
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppTheme.surfaceLow,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           ),
           clipBehavior: Clip.antiAlias,
           child: const SetupScreen(
@@ -154,7 +155,8 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
     setState(() => _isLoading = true);
 
     try {
-      final name = _nameController.text.trim();
+      final rawName = _nameController.text.trim();
+      final name = rawName.length > 10 ? rawName.substring(0, 10) : rawName;
       final weight = double.parse(_weightController.text.trim().replaceAll(',', '.'));
       final height = double.parse(_heightController.text.trim().replaceAll(',', '.'));
       final reminderMinutes = int.parse(_reminderController.text.trim());
@@ -176,6 +178,15 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
 
       await _storageService.saveDailyGoal(dailyGoalInGlasses);
       await _storageService.saveReminderMinutes(reminderMinutes);
+
+      // Metas de hábitos saludables (tentempiés: fruta, yogurt, infusión, snack) según peso/altura
+      final recommendedNutritionGoals = {
+        'fruit': 2,
+        'yogurt': 1,
+        'tea': 1,
+        'snack': weight > 85 ? 2 : 1,
+      };
+      await _storageService.saveNutritionGoals(recommendedNutritionGoals);
 
       await NotificationService.instance.scheduleHydrationReminder(
         minutes: reminderMinutes,
@@ -250,7 +261,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
                     ),
                   ),
                   const SizedBox(width: 14),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -263,7 +274,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
                             letterSpacing: -0.3,
                           ),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Text(
                           'Cálculo personalizado según peso y altura',
                           style: TextStyle(
@@ -276,7 +287,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
                   ),
                   if (widget.isEmbeddedModal)
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: AppTheme.onSurfaceVariant),
+                      icon: Icon(Icons.close_rounded, color: AppTheme.onSurfaceVariant),
                       onPressed: () => Navigator.of(context).pop(false),
                     ),
                 ],
@@ -328,7 +339,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Meta Diaria Recomendada',
                             style: TextStyle(
                               fontSize: 11,
@@ -347,7 +358,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
                             ),
                           ),
                           const SizedBox(height: 2),
-                          const Text(
+                          Text(
                             'Calculado con 35ml/kg + ajuste de estatura',
                             style: TextStyle(
                               fontSize: 11,
@@ -365,13 +376,17 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
               // Campo de Nombre
               _buildInputField(
                 controller: _nameController,
-                label: 'Tu nombre o apodo',
+                label: 'Tu nombre o apodo (máx 10 letras)',
                 hint: 'Ej. Mateo',
                 icon: Icons.person_outline_rounded,
                 isText: true,
+                maxLength: 10,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Ingresa tu nombre para personalizar tu avatar';
+                  }
+                  if (value.trim().length > 10) {
+                    return 'El nombre no puede superar los 10 caracteres';
                   }
                   return null;
                 },
@@ -488,12 +503,12 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Configuración',
           style: TextStyle(color: AppTheme.onSurface, fontWeight: FontWeight.w700),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppTheme.onSurface),
+          icon: Icon(Icons.arrow_back_rounded, color: AppTheme.onSurface),
           onPressed: () => Navigator.of(context).pop(),
         ),
         backgroundColor: Colors.transparent,
@@ -507,11 +522,11 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
               color: AppTheme.surfaceLow,
               borderRadius: BorderRadius.circular(28),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: AppTheme.cardBorder,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
+                  color: AppTheme.cardShadow,
                   blurRadius: 20,
                 ),
               ],
@@ -529,6 +544,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
     required String hint,
     required IconData icon,
     bool isText = false,
+    int? maxLength,
     String? helperText,
     required String? Function(String?) validator,
   }) {
@@ -537,7 +553,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
             color: AppTheme.onSurface,
@@ -546,8 +562,12 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
+          maxLength: maxLength,
+          inputFormatters: maxLength != null
+              ? [LengthLimitingTextInputFormatter(maxLength)]
+              : null,
           keyboardType: isText ? TextInputType.name : const TextInputType.numberWithOptions(decimal: true),
-          style: const TextStyle(
+          style: TextStyle(
             color: AppTheme.onSurface,
             fontWeight: FontWeight.w600,
           ),
@@ -558,7 +578,8 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
             filled: true,
             fillColor: AppTheme.surfaceContainer,
             helperText: helperText,
-            helperStyle: const TextStyle(color: AppTheme.onSurfaceVariant, fontSize: 11),
+            counterText: '',
+            helperStyle: TextStyle(color: AppTheme.onSurfaceVariant, fontSize: 11),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -567,7 +588,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.06),
+                color: AppTheme.cardBorder,
               ),
             ),
             focusedBorder: OutlineInputBorder(

@@ -25,12 +25,12 @@ class QuickLogPillCard extends StatelessWidget {
             color: AppTheme.surfaceContainer,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: AppTheme.cardBorder,
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
+                color: AppTheme.cardShadow,
                 blurRadius: 14,
                 offset: const Offset(0, 6),
               ),
@@ -42,14 +42,14 @@ class QuickLogPillCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.add_circle_rounded,
                         color: AppTheme.primaryAqua,
                         size: 20,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
                         'Registro Rápido',
                         style: TextStyle(
@@ -72,14 +72,14 @@ class QuickLogPillCard extends StatelessWidget {
                         color: AppTheme.surfaceHigh,
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
                           Icon(
                             Icons.undo_rounded,
                             size: 14,
                             color: AppTheme.onSurfaceVariant,
                           ),
-                          SizedBox(width: 4),
+                          const SizedBox(width: 4),
                           Text(
                             'Deshacer',
                             style: TextStyle(
@@ -212,8 +212,8 @@ class _QuickLogButtonState extends State<_QuickLogButton>
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
               decoration: BoxDecoration(
                 color: widget.isRecommended
-                    ? AppTheme.surfaceHigh
-                    : AppTheme.surfaceLow,
+                    ? (AppTheme.isLightMode ? const Color(0xFFE0F2FE) : AppTheme.surfaceHigh)
+                    : (AppTheme.isLightMode ? Colors.white : AppTheme.surfaceLow),
                 borderRadius: BorderRadius.circular(16),
                 border: widget.isRecommended
                     ? Border.all(
@@ -221,18 +221,18 @@ class _QuickLogButtonState extends State<_QuickLogButton>
                         width: 1.5,
                       )
                     : Border.all(
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: AppTheme.cardBorder,
                         width: 1,
                       ),
-                boxShadow: widget.isRecommended
-                    ? [
-                        BoxShadow(
-                          color: AppTheme.primaryAqua.withValues(alpha: 0.20),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                    : [],
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.isRecommended
+                        ? AppTheme.primaryAqua.withValues(alpha: 0.20)
+                        : AppTheme.cardShadow,
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: Column(
                 children: [
@@ -276,7 +276,7 @@ class _QuickLogButtonState extends State<_QuickLogButton>
                   const SizedBox(height: 6),
                   Text(
                     widget.label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: AppTheme.onSurface,
@@ -321,21 +321,28 @@ class _WeeklyCircadianCard extends StatelessWidget {
         color: AppTheme.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: AppTheme.cardBorder,
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.cardShadow,
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.alarm_on_rounded,
                 color: AppTheme.tertiaryMint,
                 size: 18,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 'Semana',
                 style: TextStyle(
@@ -344,7 +351,7 @@ class _WeeklyCircadianCard extends StatelessWidget {
                   color: AppTheme.onSurface,
                 ),
               ),
-              Spacer(),
+              const Spacer(),
               Text(
                 '¡Completemos esta semana!',
                 style: TextStyle(

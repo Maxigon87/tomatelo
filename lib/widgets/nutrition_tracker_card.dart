@@ -212,12 +212,12 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
             color: AppTheme.surfaceContainer,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: AppTheme.cardBorder,
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
+                color: AppTheme.cardShadow,
                 blurRadius: 14,
                 offset: const Offset(0, 6),
               ),
@@ -234,7 +234,7 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                     children: [
                       Text(
                         '${widget.completed} / ${widget.totalGoal} hábitos',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
                           color: AppTheme.onSurface,
@@ -243,7 +243,7 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                       const SizedBox(height: 2),
                       Text(
                         _message,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: AppTheme.onSurfaceVariant,
@@ -291,18 +291,26 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
-                  gradient: const LinearGradient(
-                    colors: [
-                      AppTheme.tertiaryMint,
-                      AppTheme.primaryAqua,
-                      AppTheme.secondaryCoral,
-                    ],
+                  gradient: LinearGradient(
+                    colors: AppTheme.isLightMode
+                        ? const [
+                            Color(0xFF10B981),
+                            Color(0xFF34D399),
+                            Color(0xFF6EE7B7),
+                          ]
+                        : const [
+                            AppTheme.tertiaryMint,
+                            AppTheme.primaryAqua,
+                            AppTheme.secondaryCoral,
+                          ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.tertiaryMint.withValues(alpha: 0.22),
+                      color: AppTheme.isLightMode
+                          ? const Color(0xFF10B981).withValues(alpha: 0.2)
+                          : AppTheme.tertiaryMint.withValues(alpha: 0.22),
                       blurRadius: 14,
                       offset: const Offset(0, 4),
                     ),
@@ -322,11 +330,16 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(16.8),
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFF172E29),
-                            Color(0xFF122329),
-                          ],
+                        gradient: LinearGradient(
+                          colors: AppTheme.isLightMode
+                              ? const [
+                                  Color(0xFFECFDF5),
+                                  Color(0xFFD1FAE5),
+                                ]
+                              : const [
+                                  Color(0xFF172E29),
+                                  Color(0xFF122329),
+                                ],
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                         ),
@@ -338,30 +351,35 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                             height: 36,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFF10B981),
-                                  Color(0xFF2DD4BF),
-                                ],
+                              gradient: LinearGradient(
+                                colors: AppTheme.isLightMode
+                                    ? const [
+                                        Color(0xFF10B981),
+                                        Color(0xFF059669),
+                                      ]
+                                    : const [
+                                        Color(0xFF10B981),
+                                        Color(0xFF2DD4BF),
+                                      ],
                                 begin: Alignment.bottomLeft,
                                 end: Alignment.topRight,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                                  color: const Color(0xFF10B981).withValues(alpha: 0.35),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.add_rounded,
-                              color: Color(0xFF06231C),
+                              color: AppTheme.isLightMode ? Colors.white : const Color(0xFF06231C),
                               size: 22,
                             ),
                           ),
                           const SizedBox(width: 12),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
@@ -371,17 +389,17 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w800,
-                                    color: Colors.white,
+                                    color: AppTheme.isLightMode ? const Color(0xFF064E3B) : Colors.white,
                                     letterSpacing: 0.2,
                                   ),
                                 ),
-                                SizedBox(height: 2),
+                                const SizedBox(height: 2),
                                 Text(
                                   'Selecciona de tus saludables favoritos',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
-                                    color: Color(0xFF6EE7B7),
+                                    color: AppTheme.isLightMode ? const Color(0xFF047857) : const Color(0xFF6EE7B7),
                                   ),
                                 ),
                               ],
@@ -390,32 +408,36 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF042F2E).withValues(alpha: 0.8),
+                              color: AppTheme.isLightMode
+                                  ? const Color(0xFFA7F3D0).withValues(alpha: 0.5)
+                                  : const Color(0xFF042F2E).withValues(alpha: 0.8),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: const Color(0xFF14B8A6).withValues(alpha: 0.4),
+                                color: AppTheme.isLightMode
+                                    ? const Color(0xFF059669).withValues(alpha: 0.3)
+                                    : const Color(0xFF14B8A6).withValues(alpha: 0.4),
                                 width: 1,
                               ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Text(
+                                Text(
                                   'Catálogo',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF5EEAD4),
+                                    color: AppTheme.isLightMode ? const Color(0xFF047857) : const Color(0xFF5EEAD4),
                                   ),
                                 ),
                                 const SizedBox(width: 4),
                                 AnimatedRotation(
                                   turns: _isDropdownOpen ? 0.5 : 0.0,
                                   duration: const Duration(milliseconds: 250),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.keyboard_arrow_down_rounded,
                                     size: 16,
-                                    color: Color(0xFF5EEAD4),
+                                    color: AppTheme.isLightMode ? const Color(0xFF047857) : const Color(0xFF5EEAD4),
                                   ),
                                 ),
                               ],
@@ -437,7 +459,7 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                     const SizedBox(height: 16),
                     Container(
                       height: 1,
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: AppTheme.cardBorder,
                     ),
                     const SizedBox(height: 12),
                     // Buscador de alimentos
@@ -447,7 +469,7 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                         color: AppTheme.surfaceLow,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.08),
+                          color: AppTheme.cardBorder,
                         ),
                       ),
                       child: TextField(
@@ -457,9 +479,9 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                             _searchQuery = val.trim();
                           });
                         },
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Colors.white,
+                          color: AppTheme.onSurface,
                         ),
                         decoration: InputDecoration(
                           hintText: 'Buscar entre los 60+ alimentos (ej: Banana)...',
@@ -467,7 +489,7 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                             fontSize: 12,
                             color: AppTheme.onSurfaceVariant.withValues(alpha: 0.6),
                           ),
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.search_rounded,
                             size: 16,
                             color: AppTheme.onSurfaceVariant,
@@ -480,7 +502,7 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                                       _searchQuery = '';
                                     });
                                   },
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.close_rounded,
                                     size: 16,
                                     color: AppTheme.onSurfaceVariant,
@@ -502,7 +524,7 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                         children: [
                           Text(
                             'RESULTADOS DEL CATÁLOGO (${_filteredFoods.length})',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.8,
@@ -539,7 +561,7 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                               const SizedBox(height: 6),
                               Text(
                                 'No se encontraron alimentos para "$_searchQuery"',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   color: AppTheme.onSurfaceVariant,
                                 ),
@@ -606,10 +628,10 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                                                     item.name,
                                                     maxLines: 1,
                                                     overflow: TextOverflow.ellipsis,
-                                                    style: const TextStyle(
+                                                    style: TextStyle(
                                                       fontSize: 12.5,
                                                       fontWeight: FontWeight.w700,
-                                                      color: Colors.white,
+                                                      color: AppTheme.onSurface,
                                                     ),
                                                   ),
                                                 ),
@@ -637,7 +659,7 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                                             const SizedBox(height: 2),
                                             Text(
                                               item.portion,
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontSize: 10.5,
                                                 fontWeight: FontWeight.w500,
                                                 color: AppTheme.onSurfaceVariant,
@@ -701,7 +723,7 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                       children: [
                         Row(
                           children: [
-                            const Text(
+                            Text(
                               'COSAS QUE COMÍ HOY',
                               style: TextStyle(
                                 fontSize: 11,
@@ -730,7 +752,7 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                         ),
                         Text(
                           '${widget.completed}/${widget.totalGoal} hábitos',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                             color: AppTheme.onSurfaceVariant,
@@ -745,20 +767,21 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
                         decoration: BoxDecoration(
-                          color: AppTheme.surfaceLow.withValues(alpha: 0.5),
+                          color: AppTheme.isLightMode ? Colors.white : AppTheme.surfaceLow.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                          border: Border.all(color: AppTheme.cardBorder),
+                          boxShadow: [BoxShadow(color: AppTheme.cardShadow, blurRadius: 8, offset: const Offset(0, 2))],
                         ),
                         child: Column(
                           children: [
                             const Text('🍽️', style: TextStyle(fontSize: 28)),
                             const SizedBox(height: 8),
-                            const Text(
+                            Text(
                               'Aún no has registrado alimentos hoy',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                                color: AppTheme.onSurface,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -778,11 +801,12 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                         decoration: BoxDecoration(
-                          color: AppTheme.surfaceLow.withValues(alpha: 0.5),
+                          color: AppTheme.isLightMode ? Colors.white : AppTheme.surfaceLow.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                          border: Border.all(color: AppTheme.cardBorder),
+                          boxShadow: [BoxShadow(color: AppTheme.cardShadow, blurRadius: 8, offset: const Offset(0, 2))],
                         ),
-                        child: const Center(
+                        child: Center(
                           child: Text(
                             'No hay alimentos consumidos hoy en esta categoría',
                             style: TextStyle(
@@ -812,12 +836,15 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                               vertical: 10,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF16242B).withValues(alpha: 0.75),
+                              color: AppTheme.isLightMode ? Colors.white : const Color(0xFF16242B).withValues(alpha: 0.75),
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.08),
+                                color: AppTheme.cardBorder,
                                 width: 1,
                               ),
+                              boxShadow: [
+                                BoxShadow(color: AppTheme.cardShadow, blurRadius: 8, offset: const Offset(0, 2)),
+                              ],
                             ),
                             child: Row(
                               children: [
@@ -851,10 +878,10 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                                               name,
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w700,
-                                                color: Colors.white,
+                                                color: AppTheme.onSurface,
                                               ),
                                             ),
                                           ),
@@ -884,7 +911,7 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                                       const SizedBox(height: 2),
                                       Text(
                                         [portion, time].where((s) => s.isNotEmpty).join(' · '),
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 10.5,
                                           fontWeight: FontWeight.w500,
                                           color: AppTheme.onSurfaceVariant,
@@ -895,7 +922,7 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                                 ),
                                 if (widget.onRemoveFood != null)
                                   IconButton(
-                                    icon: const Icon(
+                                    icon: Icon(
                                       Icons.delete_outline_rounded,
                                       size: 18,
                                       color: AppTheme.onSurfaceVariant,
@@ -991,12 +1018,12 @@ class _IntelligentAssistantCard extends StatelessWidget {
         color: AppTheme.surfaceLow,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: AppTheme.cardBorder,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
+            color: AppTheme.cardShadow,
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -1026,7 +1053,7 @@ class _IntelligentAssistantCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1039,7 +1066,7 @@ class _IntelligentAssistantCard extends StatelessWidget {
                         letterSpacing: -0.2,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
                       'Camino ideal vs. tu progreso actual',
                       style: TextStyle(
@@ -1094,7 +1121,7 @@ class _IntelligentAssistantCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  const Text(
+                  Text(
                     'Camino Ideal',
                     style: TextStyle(
                       fontSize: 11,
@@ -1121,7 +1148,7 @@ class _IntelligentAssistantCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  const Text(
+                  Text(
                     'Tu Progreso Real',
                     style: TextStyle(
                       fontSize: 11,
@@ -1166,7 +1193,7 @@ class _IntelligentAssistantCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     statusText,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                       color: AppTheme.onSurface,
@@ -1388,6 +1415,19 @@ class _YesterdayHabitsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final yesterdayDate = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
+
+    final validConsumedYesterday = consumedYesterday.where((item) {
+      final tsStr = item['timestamp']?.toString();
+      if (tsStr == null) return true;
+      final ts = DateTime.tryParse(tsStr);
+      if (ts == null) return true;
+      return ts.year == yesterdayDate.year &&
+          ts.month == yesterdayDate.month &&
+          ts.day == yesterdayDate.day;
+    }).toList();
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -1395,9 +1435,12 @@ class _YesterdayHabitsCard extends StatelessWidget {
         color: AppTheme.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: AppTheme.cardBorder,
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(color: AppTheme.cardShadow, blurRadius: 14, offset: const Offset(0, 4)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1410,7 +1453,7 @@ class _YesterdayHabitsCard extends StatelessWidget {
                 size: 18,
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Alimentos de ayer',
                 style: TextStyle(
                   fontSize: 15,
@@ -1419,7 +1462,7 @@ class _YesterdayHabitsCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              if (consumedYesterday.isNotEmpty)
+              if (validConsumedYesterday.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
@@ -1427,7 +1470,7 @@ class _YesterdayHabitsCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    '${consumedYesterday.length} consumidos',
+                    '${validConsumedYesterday.length} consumidos',
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
@@ -1438,14 +1481,14 @@ class _YesterdayHabitsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          if (consumedYesterday.isNotEmpty)
+          if (validConsumedYesterday.isNotEmpty)
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: consumedYesterday.length,
+              itemCount: validConsumedYesterday.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
-                final item = consumedYesterday[index];
+                final item = validConsumedYesterday[index];
                 final name = item['name']?.toString() ?? 'Alimento';
                 final emoji = item['emoji']?.toString() ?? '🍎';
                 final category = item['category']?.toString() ?? '';
@@ -1455,11 +1498,14 @@ class _YesterdayHabitsCard extends StatelessWidget {
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppTheme.surfaceLow,
+                    color: AppTheme.isLightMode ? Colors.white : AppTheme.surfaceLow,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.05),
+                      color: AppTheme.cardBorder,
                     ),
+                    boxShadow: [
+                      BoxShadow(color: AppTheme.cardShadow, blurRadius: 6, offset: const Offset(0, 2)),
+                    ],
                   ),
                   child: Row(
                     children: [
@@ -1484,16 +1530,16 @@ class _YesterdayHabitsCard extends StatelessWidget {
                           children: [
                             Text(
                               name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                                color: AppTheme.onSurface,
                               ),
                             ),
                             if (category.isNotEmpty)
                               Text(
                                 [category, portion].where((s) => s.isNotEmpty).join(' · '),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
                                   color: AppTheme.onSurfaceVariant,
                                 ),
@@ -1504,7 +1550,7 @@ class _YesterdayHabitsCard extends StatelessWidget {
                       if (time.isNotEmpty)
                         Text(
                           time,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10,
                             color: AppTheme.onSurfaceVariant,
                           ),
@@ -1522,10 +1568,10 @@ class _YesterdayHabitsCard extends StatelessWidget {
                 color: AppTheme.surfaceLow,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Text('🍽️', style: TextStyle(fontSize: 20)),
-                  SizedBox(width: 10),
+                  const Text('🍽️', style: TextStyle(fontSize: 20)),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'No se registraron alimentos ayer.',
@@ -1563,21 +1609,24 @@ class _WeeklyHabitsCard extends StatelessWidget {
         color: AppTheme.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: AppTheme.cardBorder,
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(color: AppTheme.cardShadow, blurRadius: 14, offset: const Offset(0, 4)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.bar_chart_rounded,
                 color: AppTheme.tertiaryMint,
                 size: 18,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 'Tu semana',
                 style: TextStyle(
@@ -1586,8 +1635,8 @@ class _WeeklyHabitsCard extends StatelessWidget {
                   color: AppTheme.onSurface,
                 ),
               ),
-              Spacer(),
-              Text(
+              const Spacer(),
+              const Text(
                 'Ritmo constante',
                 style: TextStyle(
                   fontSize: 11,

@@ -118,7 +118,9 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
 
       final userData = await _storageService.getUserData();
       final dailyGoal = await _storageService.getDailyGoal();
-      final needsSetup = userData == null || dailyGoal == 0;
+      final isNewRegistration = !_isLoginMode;
+      final missingPhysicalConfig = userData == null || userData.weight <= 0 || userData.height <= 0 || dailyGoal == 0;
+      final needsSetup = isNewRegistration || missingPhysicalConfig;
 
       if (!mounted) return;
 
@@ -211,13 +213,13 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
             side: BorderSide(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: AppTheme.cardBorder,
             ),
           ),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.lock_reset_rounded, color: AppTheme.primaryAqua),
-              SizedBox(width: 10),
+              const Icon(Icons.lock_reset_rounded, color: AppTheme.primaryAqua),
+              const SizedBox(width: 10),
               Text(
                 'Recuperar contraseña',
                 style: TextStyle(
@@ -270,7 +272,7 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancelar', style: TextStyle(color: AppTheme.onSurfaceVariant)),
+              child: Text('Cancelar', style: TextStyle(color: AppTheme.onSurfaceVariant)),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
@@ -476,7 +478,7 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
                               children: [
                                 Text(
                                   _isLoginMode ? 'Iniciar Sesión' : 'Crear Cuenta',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800,
                                     color: AppTheme.onSurface,
@@ -505,9 +507,9 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Row(
+                                Row(
                                   children: [
-                                    Icon(
+                                    const Icon(
                                       Icons.water_drop_rounded,
                                       size: 15,
                                       color: AppTheme.primaryAqua,
@@ -541,7 +543,7 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
                             TextFormField(
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: AppTheme.onSurface,
@@ -551,7 +553,7 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
                                 hintStyle: TextStyle(
                                   color: AppTheme.onSurfaceVariant.withValues(alpha: 0.5),
                                 ),
-                                prefixIcon: const Icon(
+                                prefixIcon: Icon(
                                   Icons.mail_outline_rounded,
                                   size: 20,
                                   color: AppTheme.onSurfaceVariant,
@@ -584,9 +586,9 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Row(
+                                Row(
                                   children: [
-                                    Icon(
+                                    const Icon(
                                       Icons.lock_rounded,
                                       size: 15,
                                       color: AppTheme.secondaryCoral,
@@ -620,7 +622,7 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
                             TextFormField(
                               controller: _passwordController,
                               obscureText: _obscurePassword,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: AppTheme.onSurface,
@@ -630,7 +632,7 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
                                 hintStyle: TextStyle(
                                   color: AppTheme.onSurfaceVariant.withValues(alpha: 0.5),
                                 ),
-                                prefixIcon: const Icon(
+                                prefixIcon: Icon(
                                   Icons.lock_outline_rounded,
                                   size: 20,
                                   color: AppTheme.onSurfaceVariant,
@@ -695,7 +697,7 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  const Text(
+                                  Text(
                                     'Recordar correo',
                                     style: TextStyle(
                                       fontSize: 12,
@@ -782,7 +784,7 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
                                     _isLoginMode
                                         ? '¿Primera vez en Tomátelo? '
                                         : '¿Ya tienes cuenta? ',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
                                       color: AppTheme.onSurfaceVariant,
@@ -819,18 +821,18 @@ class _InicioScreenState extends State<InicioScreen> with SingleTickerProviderSt
                         color: AppTheme.surfaceLowest.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.05),
+                          color: AppTheme.cardBorder,
                         ),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.lock_outline_rounded,
                             size: 13,
                             color: AppTheme.tertiaryMint,
                           ),
-                          SizedBox(width: 6),
+                          const SizedBox(width: 6),
                           Text(
                             'Tus registros de salud se cifran en tu dispositivo',
                             style: TextStyle(

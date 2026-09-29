@@ -13,8 +13,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:home_widget/home_widget.dart';
 
-final ValueNotifier<ThemeMode> themeModeNotifier =
-    ValueNotifier<ThemeMode>(ThemeMode.dark);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,7 +55,7 @@ void main() async {
   final userData = await storageService.getUserData();
   final dailyGoal = await storageService.getDailyGoal();
 
-  final needsSetup = userData == null || dailyGoal == 0;
+  final needsSetup = userData == null || userData.weight <= 0 || userData.height <= 0 || dailyGoal == 0;
 
   if (!needsSetup) {
     try {

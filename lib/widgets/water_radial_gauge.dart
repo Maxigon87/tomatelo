@@ -57,7 +57,7 @@ class WaterRadialGauge extends StatelessWidget {
                             children: [
                               Text(
                                 '$currentMl',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 36,
                                   fontWeight: FontWeight.w800,
                                   color: AppTheme.onSurface,
@@ -65,7 +65,7 @@ class WaterRadialGauge extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              const Text(
+                              Text(
                                 'ml',
                                 style: TextStyle(
                                   fontSize: 16,
@@ -87,7 +87,7 @@ class WaterRadialGauge extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              'Meta: ${safeTarget >= 1000 ? '${(safeTarget / 1000).toStringAsFixed(1).replaceAll('.0', '')}.000' : safeTarget} ml',
+                              'Meta: ${safeTarget >= 1000 && safeTarget % 1000 == 0 ? '${safeTarget ~/ 1000}.000' : safeTarget} ml',
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -144,7 +144,9 @@ class _ArcGaugePainter extends CustomPainter {
     const sweepAngle = pi;
 
     final bgPaint = Paint()
-      ..color = const Color(0xFF111C2E)
+      ..color = AppTheme.isLightMode
+          ? const Color(0xFFBAE6FD).withValues(alpha: 0.50)
+          : const Color(0xFF111C2E)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 16
       ..strokeCap = StrokeCap.round;

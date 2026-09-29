@@ -7,7 +7,6 @@ import 'package:home_widget/home_widget.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:confetti/confetti.dart';
-import 'package:tomatelo/main.dart';
 import 'package:tomatelo/models/nutrition_habit.dart';
 import 'package:tomatelo/screens/setup_screen.dart';
 import 'package:tomatelo/screens/inicio_screen.dart';
@@ -223,7 +222,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     final storedLastReset = await _storageService.getLastReset();
     final storedWeekStart = await _storageService.getWeekStart();
-    final storedDailyGoal = await _storageService.getDailyGoal();
+    final rawDailyGoal = await _storageService.getDailyGoal();
+    final storedDailyGoal = GoalUtils.toGlasses(rawDailyGoal);
     var dailyHistory = await _storageService.getDailyHistory();
     var weeklyData = await _storageService.getWeeklyData();
     var nutritionWeeklyData = await _storageService.getNutritionWeeklyData();
@@ -239,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     final hasGift = await _storageService.hasGivenInitialGift();
     var currentLives = await _storageService.getLives();
-    if (!hasGift || currentLives < 3) {
+    if (!hasGift) {
       currentLives = 3;
       await _storageService.saveLives(3);
       await _storageService.setInitialGiftGiven();
@@ -334,9 +334,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await _storageService.saveStreak(storedStreak);
       await _storageService.saveLastStreakDate("${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}");
 
-      // Pasar alimentos consumidos de hoy a ayer
-      final consumedToday = await _storageService.getConsumedFoodsToday();
-      await _storageService.saveConsumedFoodsYesterday(consumedToday);
+      // Pasar alimentos consumidos de hoy a ayer solo si el ultimo día activo fue ayer
+      if (daysDiff == 1) {
+        final consumedToday = await _storageService.getConsumedFoodsToday();
+        await _storageService.saveConsumedFoodsYesterday(consumedToday);
+      } else {
+        await _storageService.saveConsumedFoodsYesterday([]);
+      }
       await _storageService.saveConsumedFoodsToday([]);
 
       final nutWeekly = List<int>.from(
@@ -449,7 +453,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _loadData() async {
     final userData = await _storageService.getUserData();
     final glassesToday = await _storageService.getGlassesToday();
-    final dailyGoal = await _storageService.getDailyGoal();
+    final rawDailyGoal = await _storageService.getDailyGoal();
+    final dailyGoal = GoalUtils.toGlasses(rawDailyGoal);
     final weeklyData = await _storageService.getWeeklyData();
     final dailyHistory = await _storageService.getDailyHistory();
     final lastDrinkAt = await _storageService.getLastDrinkAt();
@@ -497,14 +502,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await _updateWidget(_glassesToday, _dailyGoal);
   }
 
-  String get _userInitials {
+  String get _displayName {
     final trimmed = _userName.trim();
-    if (trimmed.isEmpty) return 'U';
-    final parts = trimmed.split(RegExp(r'\s+'));
-    if (parts.length == 1) {
-      return parts[0].substring(0, 1).toUpperCase();
-    }
-    return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
+    if (trimmed.isEmpty) return 'Usuario';
+    return trimmed.length > 10 ? trimmed.substring(0, 10) : trimmed;
   }
 
   void _showLivesDialog() {
@@ -516,13 +517,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
             side: BorderSide(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: AppTheme.cardBorder,
             ),
           ),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.favorite_rounded, color: AppTheme.primaryAqua, size: 28),
-              SizedBox(width: 10),
+              const Icon(Icons.favorite_rounded, color: AppTheme.primaryAqua, size: 28),
+              const SizedBox(width: 10),
               Text(
                 'Vidas de Racha 💙',
                 style: TextStyle(
@@ -546,7 +547,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 '• ¡Completa los 7 días de una semana entera (al 50% o más de tu meta de agua) y ganarás +1 Vida extra! 🏆\n\n'
                 '• Si un día no logras el 50% de tu objetivo, usarás 1 vida automáticamente para proteger tu racha sin perder tus días. 🔥\n\n'
                 '• Si te quedas sin vidas y no alcanzas el 50%, tu racha se reiniciará.',
@@ -573,6 +574,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _showLivesInfoDialog(String message) {
+    final isGainedLife = message.contains('ganado') || message.contains('perfecta');
+    final isLostLife = message.contains('salvó') || message.contains('usó');
+
+    if (isGainedLife) {
+      _confettiController.play();
+    }
+
+    final dialogTitle = isGainedLife
+        ? '¡Semana Perfecta! 🎉'
+        : (isLostLife ? '¡Vida de Racha Usada! 🛡️' : '¡Racha Reiniciada! 🚀');
+
+    final headerIcon = isGainedLife
+        ? Icons.emoji_events_rounded
+        : (isLostLife ? Icons.health_and_safety_rounded : Icons.local_fire_department_rounded);
+
+    final headerColor = isGainedLife
+        ? const Color(0xFF10B981)
+        : (isLostLife ? const Color(0xFF0EA5E9) : AppTheme.secondaryCoral);
+
     showDialog<void>(
       context: context,
       builder: (context) {
@@ -581,37 +601,66 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
             side: BorderSide(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: headerColor.withValues(alpha: 0.4),
+              width: 1.5,
             ),
           ),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.favorite_rounded, color: AppTheme.primaryAqua, size: 26),
-              SizedBox(width: 10),
-              Text(
-                'Notificación de Racha',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.onSurface,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: headerColor.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(headerIcon, color: headerColor, size: 26),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  dialogTitle,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.onSurface,
+                  ),
                 ),
               ),
             ],
           ),
           content: Text(
             message,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               color: AppTheme.onSurface,
-              height: 1.4,
+              height: 1.45,
+              fontWeight: FontWeight.w500,
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Aceptar',
-                style: TextStyle(color: AppTheme.primaryAqua, fontWeight: FontWeight.w700),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: LinearGradient(
+                  colors: [headerColor, headerColor.withValues(alpha: 0.85)],
+                ),
+              ),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(
+                  isGainedLife ? '¡Excelente! 🔥' : (isLostLife ? '¡A seguir así! 💧' : '¡Aceptar Reto! ⚡'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
             ),
           ],
@@ -768,31 +817,55 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             automaticallyImplyLeading: false,
             title: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceLow,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.local_fire_department_rounded,
-                        color: AppTheme.primaryAqua,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$_waterStreak días',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.primaryAqua,
+                TweenAnimationBuilder<double>(
+                  key: ValueKey(_waterStreak),
+                  tween: Tween<double>(begin: 0.75, end: 1.0),
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.elasticOut,
+                  builder: (context, scale, child) {
+                    return Transform.scale(
+                      scale: scale,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: _waterStreak > 0
+                                ? const [Color(0xFFFF7A00), Color(0xFFFF3D00)]
+                                : [AppTheme.surfaceLow, AppTheme.surfaceLow],
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _waterStreak > 0
+                                  ? const Color(0xFFFF6B00).withValues(alpha: 0.35)
+                                  : AppTheme.cardShadow,
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.local_fire_department_rounded,
+                              color: _waterStreak > 0 ? Colors.white : AppTheme.onSurfaceVariant,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$_waterStreak d',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: _waterStreak > 0 ? Colors.white : AppTheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 8),
                 Container(
@@ -803,7 +876,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 const SizedBox(width: 8),
                 Text(
                   position < 0.5 ? 'Agua Pura' : 'Alimentación',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.onSurface,
@@ -815,61 +888,108 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             actions: [
               GestureDetector(
                 onTap: _showLivesDialog,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceLow,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: AppTheme.primaryAqua.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.favorite_rounded,
-                        color: AppTheme.primaryAqua,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$_lives',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.primaryAqua,
+                child: TweenAnimationBuilder<double>(
+                  key: ValueKey(_lives),
+                  tween: Tween<double>(begin: 0.75, end: 1.0),
+                  duration: const Duration(milliseconds: 450),
+                  curve: Curves.elasticOut,
+                  builder: (context, scale, child) {
+                    return Transform.scale(
+                      scale: scale,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: _lives > 0
+                                ? const [Color(0xFF0284C7), Color(0xFF0EA5E9)]
+                                : [AppTheme.secondaryCoral, AppTheme.secondaryCoral],
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _lives > 0
+                                  ? const Color(0xFF0EA5E9).withValues(alpha: 0.35)
+                                  : AppTheme.secondaryCoral.withValues(alpha: 0.35),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.favorite_rounded,
+                              color: Colors.white,
+                              size: 15,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$_lives',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 8),
               Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  color: AppTheme.primaryAqua,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  _userInitials,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF00354A),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppTheme.isLightMode
+                      ? AppTheme.primaryAqua.withValues(alpha: 0.18)
+                      : AppTheme.surfaceLow,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: AppTheme.primaryAqua.withValues(alpha: 0.4),
+                    width: 1,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryAqua.withValues(alpha: 0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.person_rounded,
+                      size: 15,
+                      color: AppTheme.primaryAqua,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      _displayName,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 4),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded, color: AppTheme.onSurfaceVariant),
-                color: AppTheme.surfaceHigh,
-                elevation: 10,
+                icon: Icon(Icons.more_vert_rounded, color: AppTheme.onSurfaceVariant),
+                color: AppTheme.surfaceLow,
+                elevation: 6,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                   side: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AppTheme.cardBorder,
                   ),
                 ),
                 onSelected: (value) async {
@@ -964,19 +1084,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'settings',
                     child: ListTile(
-                      leading: Icon(Icons.settings_outlined, color: AppTheme.primaryAqua),
-                      title: Text('Configuración', style: TextStyle(fontWeight: FontWeight.w600)),
+                      leading: const Icon(Icons.settings_outlined, color: AppTheme.primaryAqua),
+                      title: Text('Configuración', style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.onSurface)),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                  const PopupMenuItem<String>(
+                  PopupMenuItem<String>(
                     value: 'logout',
                     child: ListTile(
-                      leading: Icon(Icons.logout_rounded, color: AppTheme.secondaryCoral),
-                      title: Text('Cerrar sesión', style: TextStyle(fontWeight: FontWeight.w600)),
+                      leading: const Icon(Icons.logout_rounded, color: AppTheme.secondaryCoral),
+                      title: Text('Cerrar sesión', style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.onSurface)),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
@@ -1050,7 +1170,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
@@ -1060,12 +1180,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: AppTheme.cardBorder,
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.35),
+                    color: AppTheme.cardShadow,
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -1296,11 +1416,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 color: AppTheme.surfaceLow,
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: AppTheme.cardBorder,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.35),
+                    color: AppTheme.cardShadow,
                     blurRadius: 24,
                     offset: const Offset(0, 12),
                   ),
@@ -1310,7 +1430,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Objetivos saludables',
                     style: TextStyle(
                       fontSize: 18,
@@ -1319,7 +1439,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Ajusta metas simples para tu día. Sin calorías ni presión.',
                     style: TextStyle(
                       fontSize: 12,
@@ -1338,7 +1458,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           Expanded(
                             child: Text(
                               habit.label,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 color: AppTheme.onSurface,
                               ),
@@ -1359,7 +1479,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             child: Text(
                               '$value',
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w800,
                                 color: AppTheme.onSurface,
                                 fontSize: 16,
@@ -1489,10 +1609,10 @@ class _SwipeBackground extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final waterColors = isDark
         ? const [Color(0xFF071726), Color(0xFF0E3658), Color(0xFF164A73)]
-        : const [Color(0xFFEFF8FF), Color(0xFFDDF2FF), Colors.white];
+        : const [Color(0xFFCCEBFB), Color(0xFFDDF4FE), Color(0xFFEFF9FF)];
     final nutritionColors = isDark
         ? const [Color(0xFF101F13), Color(0xFF27451F), Color(0xFF5B3A16)]
-        : const [Color(0xFFF4FFE8), Color(0xFFFFF2CC), Colors.white];
+        : const [Color(0xFFE4F6ED), Color(0xFFF0FAF4), Color(0xFFF9FCFB)];
 
     final currentColors = List.generate(
       waterColors.length,
@@ -1536,12 +1656,12 @@ class _SectionPill extends StatelessWidget {
         color: AppTheme.surfaceLow,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: AppTheme.cardBorder,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
+            color: AppTheme.cardShadow,
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),
@@ -1599,7 +1719,7 @@ class _PillItem extends StatelessWidget {
           duration: const Duration(milliseconds: 220),
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: selected ? AppTheme.surfaceBright : Colors.transparent,
+            color: selected ? (Theme.of(context).brightness == Brightness.light ? Colors.white : AppTheme.surfaceBright) : Colors.transparent,
             borderRadius: BorderRadius.circular(999),
             boxShadow: selected
                 ? [

@@ -119,12 +119,12 @@ class _WaterTimelineChartState extends State<WaterTimelineChart>
         color: AppTheme.surfaceLow,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: AppTheme.cardBorder,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
+            color: AppTheme.cardShadow,
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -154,7 +154,7 @@ class _WaterTimelineChartState extends State<WaterTimelineChart>
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -167,7 +167,7 @@ class _WaterTimelineChartState extends State<WaterTimelineChart>
                         letterSpacing: -0.2,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
                       'Camino ideal vs. tu progreso actual',
                       style: TextStyle(
@@ -222,7 +222,7 @@ class _WaterTimelineChartState extends State<WaterTimelineChart>
                     ),
                   ),
                   const SizedBox(width: 6),
-                  const Text(
+                  Text(
                     'Camino Ideal',
                     style: TextStyle(
                       fontSize: 11,
@@ -249,7 +249,7 @@ class _WaterTimelineChartState extends State<WaterTimelineChart>
                     ),
                   ),
                   const SizedBox(width: 6),
-                  const Text(
+                  Text(
                     'Tu Progreso Real',
                     style: TextStyle(
                       fontSize: 11,

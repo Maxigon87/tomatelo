@@ -21,8 +21,11 @@ class HydrationPet extends StatefulWidget {
 }
 
 class _HydrationPetState extends State<HydrationPet>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _squishController;
+  late final AnimationController _floatController;
+  late final Animation<double> _floatAnim;
+  late final Animation<double> _glowAnim;
   bool _isBlinking = false;
   Timer? _blinkTimer;
 
@@ -36,7 +39,28 @@ class _HydrationPetState extends State<HydrationPet>
       upperBound: 0.25,
     );
 
+    _floatController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat(reverse: true);
+
+    _floatAnim = Tween<double>(begin: -5.0, end: 5.0).animate(
+      CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
+    );
+
+    _glowAnim = Tween<double>(begin: 0.20, end: 0.45).animate(
+      CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
+    );
+
     _startBlinkTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant HydrationPet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mood != widget.mood) {
+      _squishController.forward().then((_) => _squishController.reverse());
+    }
   }
 
   void _startBlinkTimer() {
@@ -59,6 +83,7 @@ class _HydrationPetState extends State<HydrationPet>
   @override
   void dispose() {
     _blinkTimer?.cancel();
+    _floatController.dispose();
     _squishController.dispose();
     super.dispose();
   }
@@ -80,44 +105,48 @@ class _HydrationPetState extends State<HydrationPet>
     };
 
     return AnimatedBuilder(
-      animation: _squishController,
+      animation: Listenable.merge([_squishController, _floatController]),
       builder: (context, child) {
         final squish = _squishController.value;
         final scaleX = 1.0 + squish;
         final scaleY = 1.0 - squish;
+        final floatOffsetY = _floatAnim.value;
+        final glowAlpha = _glowAnim.value;
 
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             GestureDetector(
               onTap: _handleTap,
-              child: Transform.scale(
-                scaleX: scaleX,
-                scaleY: scaleY,
-                child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
-                    // Ambient Bioluminescent Water Glow behind Gotita
-                    Container(
-                      width: widget.size * 1.25,
-                      height: widget.size * 1.25,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: effectiveMood == HydrationPetMood.tired
-                            ? Colors.orange.withValues(alpha: 0.10)
-                            : AppTheme.primaryAqua.withValues(alpha: 0.25),
-                        boxShadow: [
-                          BoxShadow(
-                            color: effectiveMood == HydrationPetMood.tired
-                                ? Colors.orange.withValues(alpha: 0.15)
-                                : AppTheme.primaryAqua.withValues(alpha: 0.35),
-                            blurRadius: 36,
-                            spreadRadius: 8,
-                          ),
-                        ],
+              child: Transform.translate(
+                offset: Offset(0, floatOffsetY),
+                child: Transform.scale(
+                  scaleX: scaleX,
+                  scaleY: scaleY,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Ambient Bioluminescent Water Glow behind Gotita
+                      Container(
+                        width: widget.size * 1.25,
+                        height: widget.size * 1.25,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: effectiveMood == HydrationPetMood.tired
+                              ? Colors.orange.withValues(alpha: glowAlpha * 0.5)
+                              : AppTheme.primaryAqua.withValues(alpha: glowAlpha),
+                          boxShadow: [
+                            BoxShadow(
+                              color: effectiveMood == HydrationPetMood.tired
+                                  ? Colors.orange.withValues(alpha: glowAlpha * 0.6)
+                                  : AppTheme.primaryAqua.withValues(alpha: glowAlpha + 0.1),
+                              blurRadius: 36,
+                              spreadRadius: 8,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                     // Sparkles Particle Layer
                     if (effectiveMood != HydrationPetMood.tired) ...[
                       const Positioned(
@@ -181,7 +210,8 @@ class _HydrationPetState extends State<HydrationPet>
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+            ),
+            const SizedBox(height: 8),
               // Dynamic Mood Speech Badge Pill
               Container(
                 padding: const EdgeInsets.symmetric(

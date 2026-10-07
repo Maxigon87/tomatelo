@@ -588,7 +588,9 @@ class _NutritionTrackerCardState extends State<NutritionTrackerCard> {
                                     vertical: 10,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF16242B).withValues(alpha: 0.75),
+                                    color: AppTheme.isLightMode
+                                        ? Colors.white
+                                        : const Color(0xFF16242B).withValues(alpha: 0.75),
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
                                       color: item.color.withValues(alpha: 0.25),

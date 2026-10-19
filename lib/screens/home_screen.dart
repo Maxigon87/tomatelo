@@ -67,9 +67,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _pagePosition = ValueNotifier<double>(0);
     _pageController.addListener(_handlePageScroll);
     _confettiController = ConfettiController(duration: const Duration(seconds: 3));
-    _initializeScreen();
     _startAdvisorRefresh();
-    _listenToFirestore();
+    _initializeScreen();
   }
 
   @override
@@ -120,6 +119,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _listenToFirestore() {
     final stream = _storageService.getUserStream();
     if (stream == null) return;
+    _userSubscription?.cancel();
     _userSubscription = stream.listen((snapshot) {
       if (!snapshot.exists || !mounted) return;
       final data = snapshot.data() as Map<String, dynamic>?;
@@ -204,6 +204,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await _syncFromWidget();
     await _loadData();
 
+    // Iniciar escucha en tiempo real una vez completada la sincronización inicial
+    // para evitar carreras de datos donde Firestore sobreescribe el cálculo diario
+    _listenToFirestore();
+
     if (_pendingLivesMessage != null && mounted) {
       final msg = _pendingLivesMessage!;
       _pendingLivesMessage = null;
@@ -235,7 +239,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       nutritionWeeklyData = List.filled(7, 0);
     }
 
-    final minMlForStreak = storedDailyGoal > 0 ? (storedDailyGoal * AppConstants.waterStep / 2).round() : AppConstants.waterStep;
+    // Cumplir al menos el 50% de la meta diaria (redondeo estándar hacia arriba en vasos/hábitos)
+    final minGlassesForStreak = storedDailyGoal > 0 ? (storedDailyGoal / 2).ceil() : 1;
+    final minMlForStreak = minGlassesForStreak * AppConstants.waterStep;
 
     final hasGift = await _storageService.hasGivenInitialGift();
     var currentLives = await _storageService.getLives();
@@ -246,8 +252,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     if (storedWeekStart != null && storedWeekStart != mondayStr) {
-      // Comprobar si la semana anterior estuvo 100% completa (los 7 días al 50% o más)
-      final isFullWeekCompleted = weeklyData.length == 7 && weeklyData.every((ml) => ml >= minMlForStreak && ml > 0);
+      // Comprobar si la semana anterior estuvo 100% completa:
+      // Cada día cumplió al menos el 50% de agua O el 50% de nutrición
+      final storedNutritionGoals = _withDefaultNutritionGoals(
+        await _storageService.getNutritionGoals(),
+      );
+      final weekNutritionGoalTotal = storedNutritionGoals.values.fold(0, (a, b) => a + b);
+      final minNutritionWeekly = weekNutritionGoalTotal > 0 ? (weekNutritionGoalTotal / 2).ceil() : 1;
+
+      final isFullWeekCompleted = weeklyData.length == 7 &&
+          nutritionWeeklyData.length == 7 &&
+          List.generate(7, (i) {
+            final waterOk = weeklyData[i] >= minMlForStreak && weeklyData[i] > 0;
+            final nutritionOk = nutritionWeeklyData[i] >= minNutritionWeekly && nutritionWeeklyData[i] > 0;
+            return waterOk || nutritionOk;
+          }).every((met) => met);
       final lastAwarded = await _storageService.getLastAwardedWeek();
 
       if (isFullWeekCompleted && lastAwarded != storedWeekStart) {
@@ -287,9 +306,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       );
 
       // Comprobar si el día de ayer cumplió al menos el 50% de los retos (agua o alimentación)
-      final waterGoalMet = storedDailyGoal > 0 && storedMl >= minMlForStreak;
+      final waterGoalMet = storedDailyGoal > 0 && storedGlasses >= minGlassesForStreak;
       final nutritionGoalTotal = storedNutritionGoals.values.fold(0, (a, b) => a + b);
-      final minNutritionForStreak = nutritionGoalTotal > 0 ? (nutritionGoalTotal / 2).ceil() : 0;
+      final minNutritionForStreak = nutritionGoalTotal > 0 ? (nutritionGoalTotal / 2).ceil() : 1;
       final nutritionCount = _nutritionCompletedCount(storedNutritionToday, goals: storedNutritionGoals);
       final nutritionGoalMet = nutritionGoalTotal > 0 && nutritionCount >= minNutritionForStreak;
       final challengesMet = waterGoalMet || nutritionGoalMet;
@@ -363,26 +382,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await _storageService.saveStreak(0);
       await _storageService.saveLastStreakDate("${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}");
     } else {
-      // Mismo día: evaluar si ayer no se había evaluado la racha
+      // Mismo día: evaluar si ayer no se había evaluado la racha aún
       final lastStreakDate = await _storageService.getLastStreakDate();
       final todayStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
       if (lastStreakDate != todayStr) {
         final yesterdayGlasses = await _storageService.getGlassesYesterday();
-        final yesterdayMl = yesterdayGlasses * AppConstants.waterStep;
         final yesterdayNutrition = _withDefaultNutritionValues(
           await _storageService.getNutritionYesterday(),
         );
         final storedNutritionGoals = _withDefaultNutritionGoals(
           await _storageService.getNutritionGoals(),
         );
-        final waterGoalMet = storedDailyGoal > 0 && yesterdayMl >= minMlForStreak;
+        final waterGoalMet = storedDailyGoal > 0 && yesterdayGlasses >= minGlassesForStreak;
         final nutritionGoalTotal = storedNutritionGoals.values.fold(0, (a, b) => a + b);
-        final minNutritionForStreak = nutritionGoalTotal > 0 ? (nutritionGoalTotal / 2).ceil() : 0;
+        final minNutritionForStreak = nutritionGoalTotal > 0 ? (nutritionGoalTotal / 2).ceil() : 1;
         final nutritionCount = _nutritionCompletedCount(yesterdayNutrition, goals: storedNutritionGoals);
         final nutritionGoalMet = nutritionGoalTotal > 0 && nutritionCount >= minNutritionForStreak;
         final challengesMet = waterGoalMet || nutritionGoalMet;
 
-        if (!challengesMet) {
+        if (challengesMet) {
+          storedStreak++;
+          await _storageService.saveStreak(storedStreak);
+        } else {
           if (currentLives > 0) {
             currentLives = max(0, currentLives - 1);
             _pendingLivesMessage = "¡Tu vida te salvó! 💙 Ayer no alcanzaste la mitad de los retos, pero se usó 1 vida para proteger tu racha sin perder tus días.";

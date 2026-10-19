@@ -192,6 +192,12 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
         minutes: reminderMinutes,
       );
 
+      final hasGift = await _storageService.hasGivenInitialGift();
+      if (!hasGift) {
+        await _storageService.saveLives(3);
+        await _storageService.setInitialGiftGiven();
+      }
+
       await _storageService.saveLastReset(DateTime.now());
 
       if (!mounted) return;

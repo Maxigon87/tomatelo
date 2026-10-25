@@ -107,18 +107,38 @@ class WaterWidgetProvider : AppWidgetProvider() {
             val currentDate = getCurrentDateString()
             val prefs = HomeWidgetPlugin.getData(context)
             val lastDate = prefs.getString("lastDate", "")
+            val widgetHistoryRaw = prefs.getString("widget_history", "") ?: ""
+
+            val historyMap = mutableMapOf<String, Int>()
+            if (widgetHistoryRaw.isNotEmpty()) {
+                widgetHistoryRaw.split(",").forEach {
+                    val parts = it.split(":")
+                    if (parts.size == 2) {
+                        historyMap[parts[0]] = parts[1].toIntOrNull() ?: 0
+                    }
+                }
+            }
 
             val current = getSafeInt(prefs, "water", 0)
 
             val updated = if (!lastDate.isNullOrEmpty() && lastDate != currentDate) {
+                if (!lastDate.isNullOrEmpty() && current > 0) {
+                    historyMap[lastDate] = maxOf(current, historyMap[lastDate] ?: 0)
+                }
                 1 // Primer vaso del nuevo día
             } else {
                 current + 1 // Siguiente vaso del mismo día
             }
 
+            historyMap[currentDate] = updated
+
+            val newHistoryString = historyMap.entries.joinToString(",") { "${it.key}:${it.value}" }
+
+
             prefs.edit()
                 .putLong("water", updated.toLong())
                 .putString("lastDate", currentDate)
+                .putString("widget_history", newHistoryString)
                 .apply()
 
             val manager = AppWidgetManager.getInstance(context)

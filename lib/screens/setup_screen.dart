@@ -199,6 +199,8 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
       }
 
       await _storageService.saveLastReset(DateTime.now());
+      final now = DateTime.now();
+      await _storageService.saveLastStreakDate("${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}");
 
       if (!mounted) return;
 

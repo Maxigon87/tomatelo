@@ -200,8 +200,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _initializeScreen() async {
     await _storageService.syncFromFirestore();
-    await _syncWeekAndDay();
     await _syncFromWidget();
+    await _syncWeekAndDay();
     await _loadData();
 
     // Iniciar escucha en tiempo real una vez completada la sincronización inicial
@@ -444,16 +444,46 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return;
     }
     final lastDate = await HomeWidget.getWidgetData<String>('lastDate', defaultValue: '');
+    final widgetHistoryRaw = await HomeWidget.getWidgetData<String>('widget_history', defaultValue: '');
     final currentDate = DateTime.now().toIso8601String().split('T')[0];
 
-    if (lastDate != currentDate) {
-      return;
+    final storedLastResetDate = await _storageService.getLastReset();
+    final resetDateStr = storedLastResetDate != null
+        ? "${storedLastResetDate.year}-${storedLastResetDate.month.toString().padLeft(2, '0')}-${storedLastResetDate.day.toString().padLeft(2, '0')}"
+        : null;
+
+    if (widgetHistoryRaw != null && widgetHistoryRaw.isNotEmpty) {
+      final parts = widgetHistoryRaw.split(',');
+      for (final part in parts) {
+        final kv = part.split(':');
+        if (kv.length == 2) {
+          final dateStr = kv[0];
+          final count = int.tryParse(kv[1]) ?? 0;
+          if (count > 0) {
+            if (dateStr == resetDateStr) {
+              final current = await _storageService.getGlassesToday();
+              if (count > current) {
+                await _storageService.saveGlassesToday(count);
+              }
+            } else {
+               final dailyHistory = await _storageService.getDailyHistory();
+               final historyCountMl = count * AppConstants.waterStep;
+               if ((dailyHistory[dateStr] ?? 0) < historyCountMl) {
+                 dailyHistory[dateStr] = historyCountMl;
+                 await _storageService.saveDailyHistory(dailyHistory);
+               }
+            }
+          }
+        }
+      }
     }
 
-    final water = await HomeWidget.getWidgetData<int>('water', defaultValue: 0) ?? 0;
-    final current = await _storageService.getGlassesToday();
-    if (water > current) {
-      await _storageService.saveGlassesToday(water);
+    if (lastDate == currentDate) {
+      final water = await HomeWidget.getWidgetData<int>('water', defaultValue: 0) ?? 0;
+      final current = await _storageService.getGlassesToday();
+      if (water > current) {
+        await _storageService.saveGlassesToday(water);
+      }
     }
   }
 
